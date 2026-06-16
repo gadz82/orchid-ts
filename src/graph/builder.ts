@@ -227,7 +227,7 @@ async function importClass(classPath: string): Promise<unknown> {
     return mod[exportName] ?? mod;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 async function buildChatModel(
     model: string,
     opts?: Record<string, unknown>,
@@ -384,7 +384,7 @@ export async function buildGraph(opts: {
     // Build global guardrail chains
     const guardrails = (config.guardrails ?? {}) as Record<string, unknown>;
     const { input: globalInputChain, output: globalOutputChain } =
-        GuardrailWiring.buildChains(guardrails);
+        await GuardrailWiring.buildChains(guardrails);
     const hasGlobalInputRails = !globalInputChain.empty;
     const hasGlobalOutputRails = !globalOutputChain.empty;
 
@@ -522,7 +522,7 @@ export async function buildGraph(opts: {
             | undefined;
         if (agentGuardrailsCfg && (agentGuardrailsCfg.input || agentGuardrailsCfg.output)) {
             const { input: inputChain, output: outputChain } =
-                GuardrailWiring.buildChains(agentGuardrailsCfg);
+                await GuardrailWiring.buildChains(agentGuardrailsCfg);
             agentGuardrails[agentName] = { input: inputChain, output: outputChain };
             console.info(
                 "[Graph] agent '%s' guardrails: input=%d, output=%d",
@@ -607,7 +607,7 @@ export async function buildGraph(opts: {
     });
 
     // Build graph using LangGraph adapter
-    const g = LangGraphAdapter.createStateGraph({
+    const g = await LangGraphAdapter.createStateGraph({
         messages: null,
         activeAgents: null,
         pendingAgents: null,

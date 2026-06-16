@@ -1,138 +1,140 @@
 {
-    "name": "@orchid-ai/orchid",
-    "version": "0.1.0",
-    "description": "Generic, platform-agnostic multi-agent AI framework — TypeScript port of orchid-ai",
-    "license": "MIT",
-    "type": "module",
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-        },
-        "./core": {
-            "types": "./dist/core/index.d.ts",
-            "import": "./dist/core/index.js"
-        },
-        "./agents": {
-            "types": "./dist/agents/index.d.ts",
-            "import": "./dist/agents/index.js"
-        },
-        "./graph": {
-            "types": "./dist/graph/index.d.ts",
-            "import": "./dist/graph/index.js"
-        },
-        "./config": {
-            "types": "./dist/config/index.d.ts",
-            "import": "./dist/config/index.js"
-        },
-        "./rag": {
-            "types": "./dist/rag/index.d.ts",
-            "import": "./dist/rag/index.js"
-        },
-        "./persistence": {
-            "types": "./dist/persistence/index.d.ts",
-            "import": "./dist/persistence/index.js"
-        },
-        "./documents": {
-            "types": "./dist/documents/index.d.ts",
-            "import": "./dist/documents/index.js"
-        },
-        "./mcp": {
-            "types": "./dist/mcp/index.d.ts",
-            "import": "./dist/mcp/index.js"
-        },
-        "./guardrails": {
-            "types": "./dist/guardrails/index.d.ts",
-            "import": "./dist/guardrails/index.js"
-        },
-        "./llm": {
-            "types": "./dist/llm/index.d.ts",
-            "import": "./dist/llm/index.js"
-        },
-        "./observability": {
-            "types": "./dist/observability/index.d.ts",
-            "import": "./dist/observability/index.js"
-        },
-        "./tools": {
-            "types": "./dist/tools/index.d.ts",
-            "import": "./dist/tools/index.js"
-        },
-        "./content": {
-            "types": "./dist/content/index.d.ts",
-            "import": "./dist/content/index.js"
-        },
-        "./identity": {
-            "types": "./dist/identity/index.d.ts",
-            "import": "./dist/identity/index.js"
-        },
-        "./checkpointing": {
-            "types": "./dist/checkpointing/index.d.ts",
-            "import": "./dist/checkpointing/index.js"
-        }
+  "name": "@orchid-ai/orchid",
+  "version": "0.1.0",
+  "description": "Generic, platform-agnostic multi-agent AI framework — TypeScript port of orchid-ai",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
-    "files": [
-        "dist",
-        "README.md",
-        "LICENSE"
-    ],
-    "scripts": {
-        "build": "tsc -p tsconfig.build.json",
-        "dev": "tsc -p tsconfig.json --watch",
-        "test": "vitest run",
-        "test:watch": "vitest",
-        "test:coverage": "vitest run --coverage",
-        "lint": "eslint src --ext .ts",
-        "typecheck": "tsc --noEmit",
-        "format": "prettier --write \"src/**/*.ts\""
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
     },
-    "engines": {
-        "node": ">=20.0.0"
+    "./agents": {
+      "types": "./dist/agents/index.d.ts",
+      "import": "./dist/agents/index.js"
     },
-    "dependencies": {
-        "@langchain/core": "^0.3.0",
-        "@langchain/langgraph": "^0.2.0",
-        "@modelcontextprotocol/sdk": "^1.0.0",
-        "better-sqlite3": "^11.0.0",
-        "yaml": "^2.6.0",
-        "zod": "^3.23.0"
+    "./graph": {
+      "types": "./dist/graph/index.d.ts",
+      "import": "./dist/graph/index.js"
     },
-    "peerDependencies": {
-        "@langchain/openai": "^0.3.0",
-        "@langchain/anthropic": "^0.3.0",
-        "@langchain/google-genai": "^0.1.0",
-        "@langchain/ollama": "^0.1.0"
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "import": "./dist/config/index.js"
     },
-    "peerDependenciesMeta": {
-        "@langchain/openai": {
-            "optional": true
-        },
-        "@langchain/anthropic": {
-            "optional": true
-        },
-        "@langchain/google-genai": {
-            "optional": true
-        },
-        "@langchain/ollama": {
-            "optional": true
-        }
+    "./rag": {
+      "types": "./dist/rag/index.d.ts",
+      "import": "./dist/rag/index.js"
     },
-    "devDependencies": {
-        "@types/better-sqlite3": "^7.6.0",
-        "@types/node": "^22.0.0",
-        "@typescript-eslint/eslint-plugin": "^8.0.0",
-        "@typescript-eslint/parser": "^8.0.0",
-        "@vitest/coverage-v8": "^2.0.0",
-        "eslint": "^9.0.0",
-        "typescript-eslint": "^8.0.0",
-        "prettier": "^3.0.0",
-        "typescript": "^5.6.0",
-        "vitest": "^2.0.0",
-        "@semantic-release/changelog": "^6.0.0",
-        "@semantic-release/git": "^10.0.0",
-        "@semantic-release/github": "^11.0.0",
-        "@semantic-release/npm": "^12.0.0",
-        "semantic-release": "^24.0.0"
+    "./persistence": {
+      "types": "./dist/persistence/index.d.ts",
+      "import": "./dist/persistence/index.js"
+    },
+    "./documents": {
+      "types": "./dist/documents/index.d.ts",
+      "import": "./dist/documents/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js"
+    },
+    "./guardrails": {
+      "types": "./dist/guardrails/index.d.ts",
+      "import": "./dist/guardrails/index.js"
+    },
+    "./llm": {
+      "types": "./dist/llm/index.d.ts",
+      "import": "./dist/llm/index.js"
+    },
+    "./observability": {
+      "types": "./dist/observability/index.d.ts",
+      "import": "./dist/observability/index.js"
+    },
+    "./tools": {
+      "types": "./dist/tools/index.d.ts",
+      "import": "./dist/tools/index.js"
+    },
+    "./content": {
+      "types": "./dist/content/index.d.ts",
+      "import": "./dist/content/index.js"
+    },
+    "./identity": {
+      "types": "./dist/identity/index.d.ts",
+      "import": "./dist/identity/index.js"
+    },
+    "./checkpointing": {
+      "types": "./dist/checkpointing/index.d.ts",
+      "import": "./dist/checkpointing/index.js"
     }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepare": "husky"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.0",
+    "@langchain/langgraph": "^0.2.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^11.0.0",
+    "yaml": "^2.6.0",
+    "zod": "^3.23.0"
+  },
+  "peerDependencies": {
+    "@langchain/anthropic": "^0.3.0",
+    "@langchain/google-genai": "^0.1.0",
+    "@langchain/ollama": "^0.1.0",
+    "@langchain/openai": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@langchain/openai": {
+      "optional": true
+    },
+    "@langchain/anthropic": {
+      "optional": true
+    },
+    "@langchain/google-genai": {
+      "optional": true
+    },
+    "@langchain/ollama": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.0",
+    "@semantic-release/git": "^10.0.0",
+    "@semantic-release/github": "^11.0.0",
+    "@semantic-release/npm": "^12.0.0",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "eslint": "^9.0.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.0.0",
+    "semantic-release": "^24.0.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.0.0"
+  }
 }

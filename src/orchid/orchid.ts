@@ -55,7 +55,7 @@ export class Orchid {
         try {
             const { buildGraph } = await import("../graph/builder.js");
             graph = await buildGraph({ config, runtime });
-        } catch (e) {
+        } catch {
             console.warn("buildGraph not available, continuing without compiled graph");
         }
 

@@ -74,7 +74,7 @@ export class SequentialStrategy implements OrchidToolCallStrategy {
     ): Promise<Record<string, unknown>> {
         const agentName = opts?.agentName ?? "";
         const results: Record<string, unknown> = {};
-        let previousResults: Record<string, unknown> = {};
+        const previousResults: Record<string, unknown> = {};
 
         for (const tool of tools) {
             try {

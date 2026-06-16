@@ -2,6 +2,7 @@ import type { OrchidVectorReader } from "../core/repository.js";
 import type { OrchidDocStore } from "../core/docStore.js";
 import type { OrchidGraphStore } from "../core/graphStore.js";
 import type { OrchidSparseEncoder } from "../core/sparse.js";
+import { registerSparseEncoder } from "./sparse/index.js";
 
 import { NullVectorReader, NullDocStore, NullGraphStore } from "./backends/null.js";
 import { InMemoryDocStore } from "./backends/inMemoryDocStore.js";
@@ -119,7 +120,6 @@ export function registerSparseEncoderBackend(
     _name: string,
     _cls: new () => OrchidSparseEncoder,
 ): void {
-    const { registerSparseEncoder } = require("./sparse/index.js");
     registerSparseEncoder(_name, _cls);
 }
 

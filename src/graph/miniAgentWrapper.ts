@@ -8,7 +8,7 @@ export class MiniAgentWrapper {
     ): Promise<boolean> {
         try {
             const { maybeDecompose } = await import("../agents/miniAgentDecomposer.js");
-            const result = await (maybeDecompose as Function)({
+            const result = await (maybeDecompose as (...args: unknown[]) => unknown)({
                 agentConfig,
                 chatModel,
                 mcpClients,

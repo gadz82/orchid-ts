@@ -49,7 +49,7 @@ export async function fanOutRetrieve(opts: {
             setTimeout(() => reject(new Error("timeout")), timeoutMs),
         );
         allResults = await Promise.race([Promise.all(tasks), timeoutPromise]);
-    } catch (_err) {
+    } catch {
         console.warn(
             "[fanOutRetrieve] Timed out after %dms with %d queries — single-query fallback",
             timeoutMs,

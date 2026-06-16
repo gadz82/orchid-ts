@@ -9,10 +9,10 @@ import { authFromConfig } from "../core/runConfig.js";
 import type { GraphState } from "./state.js";
 
 export class GuardrailWiring {
-    static buildChains(guardrailsConfig: Record<string, unknown> | null): {
+    static async buildChains(guardrailsConfig: Record<string, unknown> | null): Promise<{
         input: OrchidGuardrailChain;
         output: OrchidGuardrailChain;
-    } {
+    }> {
         const inputRules = (guardrailsConfig?.input as Array<Record<string, unknown>>) ?? [];
         const outputRules = (guardrailsConfig?.output as Array<Record<string, unknown>>) ?? [];
 
@@ -31,7 +31,7 @@ export class GuardrailWiring {
         let inputChain: OrchidGuardrailChain;
         let outputChain: OrchidGuardrailChain;
         try {
-            const { buildGuardrailChain } = require("../guardrails/registry.js");
+            const { buildGuardrailChain } = await import("../guardrails/registry.js");
             inputChain = buildGuardrailChain(inputConfigs as any);
             outputChain = buildGuardrailChain(outputConfigs as any);
         } catch {
