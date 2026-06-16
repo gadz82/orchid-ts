@@ -2,7 +2,10 @@ export class LangGraphAdapter {
     static async createStateGraph(channels: Record<string, unknown>): Promise<unknown> {
         try {
             const { StateGraph } = await import("@langchain/langgraph");
-            return new StateGraph({ channels });
+            const StateGraphCtor = StateGraph as unknown as new (init: {
+                channels: Record<string, unknown>;
+            }) => unknown;
+            return new StateGraphCtor({ channels });
         } catch {
             // LangGraph may not be installed — return a stub
             return {
