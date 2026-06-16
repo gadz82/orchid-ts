@@ -15,7 +15,11 @@ export class MiniAgentWrapper {
                 auth,
                 state,
             });
-            return result != null && "miniAgentDecisions" in result;
+            return (
+                result != null &&
+                typeof result === "object" &&
+                Object.prototype.hasOwnProperty.call(result, "miniAgentDecisions")
+            );
         } catch {
             return false;
         }

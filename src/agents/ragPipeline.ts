@@ -35,7 +35,6 @@ export class RagPipeline {
 
         const strategyName = opts.retrievalStrategy || "simple";
 
-        // @ts-expect-error — module built in later phase
         const { getRetrievalStrategy } = await import("../rag/strategies/index.js");
         const strategy = getRetrievalStrategy(strategyName, opts.retrievalConfig ?? null);
 
@@ -44,7 +43,6 @@ export class RagPipeline {
 
         const queryTransformers = retrievalCfg?.query_transformers as string[] | undefined;
 
-        // @ts-expect-error — module built in later phase
         const transformers = await import("../rag/transformers/index.js");
         const { TRANSFORMER_REGISTRY, getQueryTransformer, resolveTransformerKwargs } =
             transformers;
@@ -140,11 +138,9 @@ export class RagPipeline {
 
             const targetNamespace = effective.namespace || opts.ragNamespace;
 
-            // @ts-expect-error — module built in later phase
             const { buildIngestionStrategy } = await import("../documents/strategies/index.js");
             const ingestion = buildIngestionStrategy(effective.ingestion);
 
-            // @ts-expect-error — module built in later phase
             const { injectToRag } = await import("../rag/dynamic.js");
             await injectToRag(this.reader, {
                 toolName,
