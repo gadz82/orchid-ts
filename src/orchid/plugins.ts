@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, Dirent } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -11,7 +11,7 @@ export async function discoverPlugins(baseDir?: string): Promise<OrchidPlugin[]>
     const root = baseDir ?? join(process.cwd(), "node_modules");
     if (!existsSync(root)) return [];
 
-    let entries: string[];
+    let entries: Dirent[];
     try {
         entries = await readdir(root, { withFileTypes: true });
     } catch {
