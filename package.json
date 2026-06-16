@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Generic, platform-agnostic multi-agent AI framework — TypeScript port of orchid-ai",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gadz82/orchid-ts.git"
+  },
+  "homepage": "https://github.com/gadz82/orchid-ts#readme",
+  "bugs": {
+    "url": "https://github.com/gadz82/orchid-ts/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
