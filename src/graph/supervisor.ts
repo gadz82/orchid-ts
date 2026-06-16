@@ -354,7 +354,7 @@ async function routePhase(
         };
     }
 
-    let agents: string[] = decision.agents;
+    const agents: string[] = decision.agents;
     const direct: string | null = decision.directResponse;
     const execution: string = decision.execution;
 

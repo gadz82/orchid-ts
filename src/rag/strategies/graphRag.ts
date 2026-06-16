@@ -120,8 +120,8 @@ export class GraphRAGRetrieval extends OrchidRetrievalStrategy {
         }
 
         const seedIds = seedEntities.map((e) => e.id);
-        let allEntities: OrchidEntity[] = [];
-        let allEdges: OrchidEdge[] = [];
+        const allEntities: OrchidEntity[] = [];
+        const allEdges: OrchidEdge[] = [];
         let currentLayer = [...seedIds];
 
         for (let hop = 0; hop < this.maxHops && currentLayer.length > 0; hop++) {

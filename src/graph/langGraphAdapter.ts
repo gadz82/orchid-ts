@@ -1,7 +1,7 @@
 export class LangGraphAdapter {
-    static createStateGraph(channels: Record<string, unknown>): unknown {
+    static async createStateGraph(channels: Record<string, unknown>): Promise<unknown> {
         try {
-            const { StateGraph } = require("@langchain/langgraph");
+            const { StateGraph } = await import("@langchain/langgraph");
             return new StateGraph({ channels });
         } catch {
             // LangGraph may not be installed — return a stub

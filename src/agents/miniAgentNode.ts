@@ -46,7 +46,7 @@ export class MiniAgentRuntimeError extends Error {
 let GRAPH_BUBBLE_UP_EXCS: readonly (new (...args: any[]) => Error)[] = [];
 try {
     // Dynamic require to avoid import-time error when langgraph is optional
-    const { GraphBubbleUp } = require("@langchain/langgraph");
+    const { GraphBubbleUp } = await import("@langchain/langgraph");
     GRAPH_BUBBLE_UP_EXCS = [GraphBubbleUp];
 } catch {
     GRAPH_BUBBLE_UP_EXCS = [];

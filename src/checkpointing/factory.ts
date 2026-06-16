@@ -207,6 +207,6 @@ async function _resolveDottedPath(path: string, dsn?: string): Promise<unknown> 
  * optional peer dependencies that may not be installed at compile time.
  */
 async function _dynamicImport(specifier: string): Promise<unknown> {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+     
     return new Function("specifier", "return import(specifier)")(specifier);
 }

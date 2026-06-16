@@ -1,13 +1,14 @@
-const EVENT_TYPE_REGISTRY: Map<string, { schema: any; handler: Function }> = new Map();
+type EventHandler = (...args: unknown[]) => unknown;
+const EVENT_TYPE_REGISTRY: Map<string, { schema: any; handler: EventHandler }> = new Map();
 
-export function registerEventType(name: string, schema: any, handler: Function): void {
+export function registerEventType(name: string, schema: any, handler: EventHandler): void {
     if (EVENT_TYPE_REGISTRY.has(name)) {
         throw new Error(`Event type '${name}' is already registered`);
     }
     EVENT_TYPE_REGISTRY.set(name, { schema, handler });
 }
 
-export function getEventType(name: string): { schema: any; handler: Function } | null {
+export function getEventType(name: string): { schema: any; handler: EventHandler } | null {
     return EVENT_TYPE_REGISTRY.get(name) ?? null;
 }
 
