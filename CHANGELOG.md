@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/gadz82/orchid-ts/compare/v1.0.0...v1.0.1) (2026-06-16)
+
+
+### Bug Fixes
+
+* Revise and expand `README.md` with detailed features, examples, and architecture overview ([680ac18](https://github.com/gadz82/orchid-ts/commit/680ac18f4f57903c8960f372fbc69b9cc6ea35f8))
+
 # 1.0.0 (2026-06-16)
 
 
