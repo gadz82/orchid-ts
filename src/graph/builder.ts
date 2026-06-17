@@ -70,6 +70,18 @@ class AgentNodeWrapper {
         return agentResult;
     }
 
+    // LangChain Runnable interface — LangGraph's `_coerceToRunnable` checks
+    // for `.invoke()` (or `.call()` / `.run()`) on the value passed to
+    // `addNode()`. Without this, the AgentNodeWrapper is treated as an
+    // "unsupported type" and addNode throws. The `__call__` method above is
+    // Python-style and does not make the class instance callable in JS.
+    async invoke(
+        state: GraphState,
+        config?: Record<string, unknown>,
+    ): Promise<Partial<GraphState>> {
+        return this.__call__(state, config);
+    }
+
     private async runInputGuardrails(
         state: GraphState,
         auth: OrchidAuthContext | null,
@@ -204,8 +216,13 @@ function createAgentNode(
     inputGuardrails: OrchidGuardrailChain | null = null,
     outputGuardrails: OrchidGuardrailChain | null = null,
     agentConfig: OrchidAgentConfig | null = null,
-): AgentNodeWrapper {
-    return new AgentNodeWrapper({ agent, inputGuardrails, outputGuardrails, agentConfig });
+): (state: GraphState, config?: Record<string, unknown>) => Promise<Partial<GraphState>> {
+    // Return a plain function (not the AgentNodeWrapper class instance) so
+    // LangGraph's `_coerceToRunnable` wraps it in `RunnableLambda`. An object
+    // would be misinterpreted as a `RunnableMap` (a record of named runnables)
+    // and fail with "Expected a Runnable, function or object".
+    const wrapper = new AgentNodeWrapper({ agent, inputGuardrails, outputGuardrails, agentConfig });
+    return (state, config) => wrapper.__call__(state, config);
 }
 
 // ── Agent Instantiation ───────────────────────────────────────────
@@ -623,15 +640,27 @@ export async function buildGraph(opts: {
         chatId: null,
     }) as Record<string, unknown>;
 
-    const addNode = g["addNode"] as (name: string, node: unknown) => void;
-    const addEdge = g["addEdge"] as (from: string, to: string) => void;
-    const addConditionalEdges = g["addConditionalEdges"] as (
-        source: string,
-        router: unknown,
-        destinations?: string[],
+    // Bind methods to `g` so `this` is preserved when called as standalone
+    // functions. LangGraph's methods read `this.channels` / `this.nodes` etc.;
+    // destructuring without .bind() would leave `this` undefined and throw
+    // "Cannot read properties of undefined (reading 'channels')".
+    const addNode = (g["addNode"] as (...args: unknown[]) => unknown).bind(g) as (
+        name: string,
+        node: unknown,
     ) => void;
-    const setEntryPoint = g["setEntryPoint"] as (name: string) => void;
-    const compile = g["compile"] as (opts?: Record<string, unknown>) => unknown;
+    const addEdge = (g["addEdge"] as (...args: unknown[]) => unknown).bind(g) as (
+        from: string,
+        to: string,
+    ) => void;
+    const addConditionalEdges = (
+        g["addConditionalEdges"] as (...args: unknown[]) => unknown
+    ).bind(g) as (source: string, router: unknown, destinations?: string[]) => void;
+    const setEntryPoint = (g["setEntryPoint"] as (...args: unknown[]) => unknown).bind(
+        g,
+    ) as (name: string) => void;
+    const compile = (g["compile"] as (...args: unknown[]) => unknown).bind(g) as (
+        opts?: Record<string, unknown>,
+    ) => unknown;
 
     // Add global input guardrails node (before supervisor)
     if (hasGlobalInputRails) {
@@ -709,7 +738,13 @@ export async function buildGraph(opts: {
         addEdge("output_guardrails", END);
     }
 
-    const compiled = compile({ checkpointer: runtime.checkpointer });
+    // Only pass the checkpointer when it's set. LangGraph's `PregelLoop`
+    // constructor reads `checkpointer.getNextVersion` unconditionally at
+    // loop init; passing `checkpointer: null` makes it throw
+    // "Cannot read properties of null (reading 'getNextVersion')".
+    const compiled = runtime.checkpointer
+        ? compile({ checkpointer: runtime.checkpointer })
+        : compile();
     if (runtime.checkpointer) {
         console.info(
             "[Graph] compiled with checkpointer=%s, agents=%s",

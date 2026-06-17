@@ -60,7 +60,6 @@ async function buildFallbackEmbeddings(
     if (!model.includes("/")) {
         try {
             // Dynamic import — @langchain/openai is an optional peer dependency
-            // @ts-expect-error - optional peer dep may not be installed
             const mod = (await import("@langchain/openai")) as any;
             const { OpenAIEmbeddings } = mod;
             const apiKey = process.env["OPENAI_API_KEY"] ?? "";
