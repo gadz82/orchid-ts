@@ -61,9 +61,54 @@ export class OrchidInvoker {
         const { state, config, chatId } = this.prepareInvocation(opts);
 
         try {
-            const result = await this.graph.ainvoke(state, config);
+            // `@langchain/langgraph@0.2.74` exposes `Pregel.invoke()` (sync,
+            // returns a Promise) — there is no `ainvoke()` on the compiled
+            // graph. The previous code called `ainvoke` and crashed with
+            // "ainvoke is not a function" on the very first message.
+            const result = await this.graph.invoke(state, config);
             if (opts.persist !== false && this.chatRepo && chatId) {
                 await this.persistMessages(chatId, opts.message, result);
+            }
+            return this.resultFromGraphOutput(result, chatId);
+        } catch (exc: unknown) {
+            if (exc instanceof GraphInterrupt || (exc as any)?.type === "tool_approval") {
+                return this.interruptToResult(exc as any, chatId);
+            }
+            throw exc;
+        }
+    }
+
+    /**
+     * Invoke the graph with a pre-built state. Used by the API layer
+     * after `prepareGraphState` has already constructed a full state
+     * (including history, RAG context, MCP auth status, etc.). Unlike
+     * `invoke({ message })`, this method passes the state through
+     * unchanged — it does NOT rebuild it from a single message string.
+     */
+    async invokeState(
+        state: object,
+        opts: {
+            chatId?: string | null;
+            auth?: OrchidAuthContext | null;
+            persist?: boolean;
+        } = {},
+    ): Promise<OrchidInvokeResult> {
+        const stateObj = state as Record<string, unknown>;
+        const chatId =
+            opts.chatId ??
+            (stateObj["chatId"] as string | undefined) ??
+            (stateObj["chat_id"] as string | undefined) ??
+            `chat-${Date.now()}`;
+        const auth = opts.auth ?? null;
+        const config = withAuth(auth, { threadId: chatId });
+
+        try {
+            const result = await this.graph.invoke(state, config);
+            if (opts.persist !== false && this.chatRepo && chatId) {
+                const userMessage = this.extractUserMessageFromState(stateObj);
+                if (userMessage) {
+                    await this.persistMessages(chatId, userMessage, result);
+                }
             }
             return this.resultFromGraphOutput(result, chatId);
         } catch (exc: unknown) {
@@ -88,7 +133,8 @@ export class OrchidInvoker {
         const command = { resume: { approved: opts.approved ?? true } };
 
         try {
-            const result = await this.graph.ainvoke(command, config);
+            // `Pregel.invoke` — there is no `ainvoke` on the TS port.
+            const result = await this.graph.invoke(command, config);
             if (opts.persist !== false && this.chatRepo) {
                 await this.persistMessages(opts.chatId, "", result);
             }
@@ -115,6 +161,32 @@ export class OrchidInvoker {
         const mode = opts.streamMode ?? "updates";
         // `@langchain/langgraph@0.2.74` exposes `Pregel.stream()` — there is
         // no `astream()` on the compiled graph (that's the Python name).
+        return this.graph.stream(state, { ...config, streamMode: mode });
+    }
+
+    /**
+     * Stream the graph with a pre-built state. Used by the API layer
+     * after `prepareGraphState` has constructed the full state. Unlike
+     * `stream({ message })`, this method passes the state through
+     * unchanged — it does NOT rebuild it from a single message string.
+     */
+    async streamState(
+        state: object,
+        opts: {
+            chatId?: string | null;
+            auth?: OrchidAuthContext | null;
+            streamMode?: string | string[];
+        } = {},
+    ): Promise<AsyncIterable<[string, unknown]>> {
+        const stateObj = state as Record<string, unknown>;
+        const chatId =
+            opts.chatId ??
+            (stateObj["chatId"] as string | undefined) ??
+            (stateObj["chat_id"] as string | undefined) ??
+            `chat-${Date.now()}`;
+        const auth = opts.auth ?? null;
+        const config = withAuth(auth, { threadId: chatId });
+        const mode = opts.streamMode ?? "updates";
         return this.graph.stream(state, { ...config, streamMode: mode });
     }
 
@@ -177,6 +249,18 @@ export class OrchidInvoker {
             interrupted: true,
             approvalsNeeded: approvals,
         });
+    }
+
+    private extractUserMessageFromState(state: Record<string, unknown>): string {
+        const messages = (state["messages"] as Array<Record<string, unknown>>) ?? [];
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const m = messages[i];
+            const t = typeof m["type"] === "string" ? m["type"] : m["role"];
+            if (t === "human" || t === "user") {
+                return String(m["content"] ?? "");
+            }
+        }
+        return "";
     }
 
     private async persistMessages(chatId: string, userMessage: string, result: any): Promise<void> {

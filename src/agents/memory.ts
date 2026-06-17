@@ -354,7 +354,7 @@ export class OrchidInMemoryConversationMemory extends OrchidConversationMemory {
 
         let updatedSummary: string;
         try {
-            const result = await this.chatModel.ainvoke([{ role: "user", content: prompt }], {
+            const result = await this.chatModel.invoke([{ role: "user", content: prompt }], {
                 temperature: 0.0,
             });
             updatedSummary = result.content ?? "";
@@ -390,7 +390,7 @@ export class OrchidInMemoryConversationMemory extends OrchidConversationMemory {
 
         let responseText: string;
         try {
-            const result = await this.chatModel.ainvoke(
+            const result = await this.chatModel.invoke(
                 [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },

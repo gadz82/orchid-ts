@@ -186,7 +186,7 @@ export class MiniAgentDecomposer {
             }
         } else {
             // No structured output support — raw invoke and JSON-parse
-            const result = await this.chatModel.ainvoke([{ role: "system", content: rendered }]);
+            const result = await this.chatModel.invoke([{ role: "system", content: rendered }]);
             const jsonMatch = (result.content ?? "").match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 throw new MiniAgentDecompositionError("Decomposer did not return valid JSON");

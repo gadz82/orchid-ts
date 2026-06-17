@@ -215,7 +215,7 @@ export class LLMDecidesStrategy implements OrchidToolCallStrategy {
         if (opts?.responseFormat) {
             options["response_format"] = opts.responseFormat;
         }
-        const result = await chatModel.ainvoke(messages, options);
+        const result = await chatModel.invoke(messages, options);
         return result.content || "";
     }
 }

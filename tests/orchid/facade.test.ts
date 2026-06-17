@@ -73,7 +73,7 @@ describe("Orchid facade", () => {
 
         it("delegates to the invoker when open", async () => {
             const graph = {
-                ainvoke: vi
+                invoke: vi
                     .fn()
                     .mockResolvedValue({ messages: [{ type: "ai", content: "hello" }] }),
             };
@@ -118,7 +118,7 @@ describe("Orchid facade", () => {
             async function* fakeStream() {
                 yield ["updates", { messages: [] }];
             }
-            const graph = { astream: vi.fn().mockImplementation(() => fakeStream()) };
+            const graph = { stream: vi.fn().mockImplementation(() => fakeStream()) };
             const orchid = new Orchid({ runtime: makeRuntime(), graph });
             const iter = await orchid.stream(
                 {
@@ -150,7 +150,7 @@ describe("Orchid facade", () => {
 
         it("delegates to invoker resume when open", async () => {
             const graph = {
-                ainvoke: vi
+                invoke: vi
                     .fn()
                     .mockResolvedValue({ messages: [{ type: "ai", content: "resumed" }] }),
             };

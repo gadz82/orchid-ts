@@ -15,9 +15,16 @@ export interface ConversationMessage {
     name?: string;
 }
 
-/** Duck-type for LLM invocation — avoids langchain dependency in core/. */
+/** Duck-type for LLM invocation — avoids langchain dependency in core/.
+ *
+ * `@langchain/core`'s `BaseChatModel` and `@langchain/*` provider
+ * classes all expose `invoke(input, options?)` (which returns a Promise
+ * — there is no `ainvoke` in the JS port). The previous version of
+ * this interface declared `ainvoke`, which is the *Python* LangChain
+ * name. Every LangChain JS chat model throws "chatModel.ainvoke is
+ * not a function" against that interface. */
 export interface ChatModelLike {
-    ainvoke(messages: unknown[], options?: Record<string, unknown>): Promise<{ content: string }>;
+    invoke(messages: unknown[], options?: Record<string, unknown>): Promise<{ content: string }>;
 }
 
 const SUMMARISE_SYSTEM_TEMPLATE = `You are a helpful assistant that provides concise, accurate summaries.
@@ -175,7 +182,7 @@ export async function compressConversationHistory(
         const systemPrompt = structuredOutput
             ? `${HISTORY_COMPRESSION_SYSTEM}\nOutput JSON with keys: summary, entities.`
             : HISTORY_COMPRESSION_SYSTEM;
-        const result = await chatModel.ainvoke(
+        const result = await chatModel.invoke(
             [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: prompt },
@@ -228,7 +235,7 @@ export async function summarise(
         messages.push({ role: "user", content: userText });
     }
 
-    const result = await chatModel.ainvoke(messages, { temperature: 0.3 });
+    const result = await chatModel.invoke(messages, { temperature: 0.3 });
     return result.content;
 }
 

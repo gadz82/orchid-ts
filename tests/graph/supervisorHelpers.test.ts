@@ -156,9 +156,9 @@ describe("toLlmMessages", () => {
 });
 
 describe("llmComplete", () => {
-    it("calls chatModel.ainvoke and returns content", async () => {
+    it("calls chatModel.invoke and returns content", async () => {
         const chatModel = {
-            ainvoke: vi.fn().mockResolvedValue({ content: "generated text" }),
+            invoke: vi.fn().mockResolvedValue({ content: "generated text" }),
         };
 
         const result = await llmComplete(chatModel, "gemini/flash", [
@@ -166,7 +166,7 @@ describe("llmComplete", () => {
             { role: "user", content: "user message" },
         ]);
         expect(result).toBe("generated text");
-        expect(chatModel.ainvoke).toHaveBeenCalledWith(
+        expect(chatModel.invoke).toHaveBeenCalledWith(
             [
                 { role: "system", content: "system prompt" },
                 { role: "user", content: "user message" },
@@ -177,13 +177,13 @@ describe("llmComplete", () => {
 
     it("passes temperature and responseFormat opts", async () => {
         const chatModel = {
-            ainvoke: vi.fn().mockResolvedValue({ content: "json" }),
+            invoke: vi.fn().mockResolvedValue({ content: "json" }),
         };
         await llmComplete(chatModel, "openai/gpt-4", [{ role: "user", content: "q" }], {
             temperature: 0.7,
             responseFormat: { type: "json_object" },
         });
-        expect(chatModel.ainvoke).toHaveBeenCalledWith([{ role: "user", content: "q" }], {
+        expect(chatModel.invoke).toHaveBeenCalledWith([{ role: "user", content: "q" }], {
             temperature: 0.7,
             response_format: { type: "json_object" },
         });
@@ -196,15 +196,15 @@ describe("llmComplete", () => {
     });
 
     it("uses default temperature of 0.0", async () => {
-        const chatModel = { ainvoke: vi.fn().mockResolvedValue({ content: "ok" }) };
+        const chatModel = { invoke: vi.fn().mockResolvedValue({ content: "ok" }) };
         await llmComplete(chatModel, "m", [{ role: "user", content: "q" }]);
-        expect(chatModel.ainvoke).toHaveBeenCalledWith([{ role: "user", content: "q" }], {
+        expect(chatModel.invoke).toHaveBeenCalledWith([{ role: "user", content: "q" }], {
             temperature: 0.0,
         });
     });
 
     it("handles null content gracefully", async () => {
-        const chatModel = { ainvoke: vi.fn().mockResolvedValue({}) };
+        const chatModel = { invoke: vi.fn().mockResolvedValue({}) };
         const result = await llmComplete(chatModel, "m", [{ role: "user", content: "q" }]);
         expect(result).toBe("");
     });

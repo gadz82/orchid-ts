@@ -78,7 +78,7 @@ async function truncateLLM(content: string, maxChars: number, chatModel: any): P
         content,
     ].join("\n");
 
-    const result = await chatModel.ainvoke([{ role: "user", content: prompt }], {
+    const result = await chatModel.invoke([{ role: "user", content: prompt }], {
         temperature: 0.0,
     });
     const summary = result.content || "";

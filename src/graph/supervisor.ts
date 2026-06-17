@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Send } from "@langchain/langgraph";
 import type { ChatModelLike } from "../core/helpers.js";
 import { OrchidAgent } from "../core/agent.js";
 import type { OrchidConversationMemory } from "../core/memory.js";
@@ -78,15 +79,21 @@ function currentTurnHasAgentOutput(state: GraphState): boolean {
 
     let lastHuman = -1;
     for (let i = 0; i < messages.length; i++) {
-        const msgType = typeof messages[i]["type"] === "string" ? messages[i]["type"] : "";
-        if (msgType === "human") lastHuman = i;
+        const m = messages[i];
+        const t = typeof m["type"] === "string" ? m["type"] : m["role"];
+        if (t === "human" || t === "user") lastHuman = i;
     }
 
     for (const msg of messages.slice(lastHuman + 1)) {
-        const msgType = typeof msg["type"] === "string" ? msg["type"] : "";
-        if (msgType !== "ai") continue;
+        const t = typeof msg["type"] === "string" ? msg["type"] : msg["role"];
+        if (t !== "ai" && t !== "assistant") continue;
         const content = String(msg["content"] ?? "");
-        if (content.startsWith("[") && content.includes("Agent]\n")) {
+        // Match any `[X Agent]` prefix. The agent wraps its content in
+        // `[Basketball Agent] …` (or with a `\n` separator before the
+        // body). Accept both shapes — `[Agent]` alone is enough to
+        // disambiguate from supervisor messages which use
+        // `[Supervisor] …`.
+        if (content.startsWith("[") && /\[.+\sAgent\]/.test(content)) {
             return true;
         }
     }
@@ -240,6 +247,143 @@ function validateSkillActivation(
     };
 }
 
+/**
+ * Fallback routing path: call the model with `ainvoke` and try to parse
+ * the raw content as a JSON `OrchidRoutingDecision`. Used when
+ * `withStructuredOutput` fails (e.g. Ollama / local models that don't
+ * reliably emit tool calls).
+ */
+async function invokeAndParseManually(
+    structuredModel: { invoke?: (...args: unknown[]) => Promise<unknown> | unknown; baseUrl?: string },
+    llmMessages: Array<Record<string, unknown>>,
+    validAgentNames: Set<string>,
+): Promise<OrchidRoutingDecision> {
+    let rawText = "";
+    let usedDirectFetch = false;
+
+    // Try `structuredModel.invoke()` first (works for OpenAI / Anthropic / Gemini).
+    let primaryError: Error | null = null;
+    try {
+        if (typeof structuredModel.invoke !== "function") {
+            throw new Error("chat model has no invoke()");
+        }
+        const invokeFn = structuredModel.invoke.bind(structuredModel);
+        const result = (await invokeFn(llmMessages)) as { content?: unknown };
+        rawText = typeof result?.content === "string" ? result.content : "";
+    } catch (err) {
+        const errObj = err instanceof Error ? err : new Error(String(err));
+        primaryError = errObj;
+        console.warn(
+            "[supervisor] manual invoke failed: %s — will try direct Ollama fetch",
+            errObj.message,
+        );
+    }
+
+    // If the langchain call returned empty content, fall back to a
+    // direct HTTP call to the Ollama `/api/chat` endpoint. This works
+    // around a class of issues where `ChatOllama.invoke()` returns
+    // empty content inside the graph execution context (we observed
+    // this in `start_basketball.sh` — the same call works in
+    // isolation but returns empty inside the graph node wrapper).
+    if (!rawText.trim() && structuredModel.baseUrl) {
+        try {
+            const baseUrl = structuredModel.baseUrl.replace(/\/+$/, "");
+            const modelName = (structuredModel as { model?: string }).model ?? "llama3.2";
+            const fetchResp = await fetch(`${baseUrl}/api/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: modelName,
+                    messages: llmMessages,
+                    stream: false,
+                }),
+            });
+            if (fetchResp.ok) {
+                const fetchBody = (await fetchResp.json()) as {
+                    message?: { content?: string };
+                };
+                rawText = fetchBody.message?.content ?? "";
+                usedDirectFetch = true;
+            }
+        } catch (err) {
+            // Keep the original LangChain error for re-throw below.
+            primaryError = err instanceof Error ? err : new Error(String(err));
+            console.warn(
+                "[supervisor] direct Ollama fetch failed: %s",
+                primaryError.message,
+            );
+        }
+    }
+
+    // If both the LangChain call AND the direct Ollama fetch failed
+    // (or returned empty), re-throw the primary error so `routePhase`
+    // can apply the appropriate user-facing error response ("high
+    // demand" for 503, "rate limit" for 429, etc.). This prevents the
+    // graph from silently falling through to a generic "Sorry, I
+    // could not understand the routing decision" error.
+    if (!rawText.trim() && primaryError) {
+        throw primaryError;
+    }
+
+    if (usedDirectFetch) {
+        console.warn(
+            "[supervisor] used direct Ollama fetch, rawText (first 200): %s",
+            rawText.slice(0, 200),
+        );
+    }
+    try {
+        // Try strict JSON first.
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return OrchidRoutingDecisionSchema.parse(JSON.parse(jsonMatch[0]));
+        }
+    } catch {
+        // Fall through to YAML-ish parser below
+    }
+
+    // Many local models (Ollama llama3.2, etc.) respond with YAML-ish
+    // key/value text rather than strict JSON. Parse the three fields we
+    // care about with permissive regexes and fall through to a default
+    // decision if any are missing.
+    const pickField = (name: string): string | null => {
+        const m = rawText.match(new RegExp(`(?:^|\\n)\\s*${name}\\s*:\\s*(.+)`, "i"));
+        return m ? m[1].trim().replace(/^["']|["']$/g, "") : null;
+    };
+    const agentsRaw = pickField("agents") ?? pickField("agent");
+    const executionRaw = pickField("execution");
+    const reasoningRaw = pickField("reasoning") ?? pickField("reason");
+    const directRaw = pickField("directResponse") ?? pickField("response");
+
+    const agents = (agentsRaw ?? "")
+        .replace(/[[\]"]/g, "")  // strip brackets AND any double-quotes
+        .split(/[,\s]+/)
+        .map((s) => s.trim().replace(/^['"]+|['"]+$/g, ""))  // strip any remaining quotes (single or double)
+        .filter((s) => s && validAgentNames.has(s));
+
+    const execution: OrchidRoutingDecision["execution"] =
+        executionRaw === "sequential" ? "sequential" : "parallel";
+
+    if (agents.length > 0 || directRaw) {
+        return {
+            reasoning: reasoningRaw ?? "",
+            execution,
+            agents,
+            skill: null,
+            directResponse: directRaw ?? null,
+        };
+    }
+
+    // Last resort: surface the raw model text as a direct response so
+    // the user sees *something* instead of a generic error.
+    return {
+        reasoning: "",
+        execution: "parallel",
+        agents: [],
+        skill: null,
+        directResponse: rawText?.slice(0, 500) || "Sorry, I could not understand the routing decision.",
+    };
+}
+
 function recoverAgentNames(reasoning: string, agentDescriptions: Record<string, string>): string[] {
     const reasoningLower = reasoning.toLowerCase();
     const recovered: string[] = [];
@@ -310,31 +454,32 @@ async function routePhase(
         }
 
         const structuredModel = chatModel as any;
-        if (typeof structuredModel.withStructuredOutput !== "function") {
-            // Fallback: invoke and parse manually
-            const result = await structuredModel.ainvoke(llmMessages, { temperature: 0.0 });
-            const rawText = result.content ?? "";
-            try {
-                decision = OrchidRoutingDecisionSchema.parse(JSON.parse(rawText));
-            } catch {
-                decision = {
-                    reasoning: "",
-                    execution: "parallel",
-                    agents: [],
-                    skill: null,
-                    directResponse: "Sorry, I could not understand the routing decision.",
-                };
-            }
-        } else {
-            const structured = structuredModel.withStructuredOutput(OrchidRoutingDecisionSchema);
-            const result = await structured.invoke(llmMessages, { temperature: 0.0 });
-            decision = OrchidRoutingDecisionSchema.parse(result);
-        }
+        // Always use the manual parse path. The `withStructuredOutput` path
+        // (which works for OpenAI / Anthropic / Gemini) is unreliable for
+        // Ollama / local models — they respond with YAML-ish text rather
+        // than the tool-call format `withStructuredOutput` expects, AND
+        // the failed `withStructuredOutput` call appears to leave the
+        // underlying chat model in a state where a follow-up `invoke()`
+        // returns empty content. The manual parse is more robust and
+        // handles both JSON and YAML-ish responses.
+        decision = await invokeAndParseManually(
+            structuredModel,
+            llmMessages,
+            new Set(Object.keys(agentDescriptions)),
+        );
 
         console.info("[supervisor] routing decision: %s", JSON.stringify(decision));
     } catch (exc: unknown) {
         const errorMsg = String(exc instanceof Error ? exc.message : exc);
+        const errorStack = exc instanceof Error ? exc.stack : undefined;
+        const cause = exc instanceof Error ? (exc as Error & { cause?: unknown }).cause : undefined;
         console.error("[supervisor] LLM API error during routing: %s", errorMsg);
+        if (errorStack) console.error("[supervisor] stack:", errorStack.split("\n").slice(0, 8).join("\n"));
+        if (cause) {
+            const causeMsg = cause instanceof Error ? cause.message : String(cause);
+            const causeCode = (cause as { code?: string }).code;
+            console.error("[supervisor] cause:", causeMsg, "code:", causeCode);
+        }
 
         let responseText: string;
         if (errorMsg.includes("503") || errorMsg.toLowerCase().includes("high demand")) {
@@ -512,18 +657,18 @@ export function createSupervisorNode(opts: {
 
 export function routeToAgents(
     state: GraphState,
-): Array<{ node: string; args: GraphState }> | string {
+): Array<{ node: string; args: GraphState } | Send> | Send | string {
     const active: string[] = state.activeAgents ?? [];
 
     if (active.length > 0) {
         const mode = state.executionMode ?? "parallel";
         if (mode === "parallel") {
             console.info("[Route] parallel dispatch → %s", active);
-            // Use Send-like objects for fan-out
-            return active.map((agent) => ({
-                node: `${agent}_agent`,
-                args: state,
-            }));
+            // LangGraph's parallel fan-out requires actual `Send` instances
+            // (not plain objects). The pregel algo checks `instanceof Send`
+            // and throws `InvalidUpdateError("Invalid packet type, expected
+            // SendProtocol")` if the value is a duck-typed plain object.
+            return active.map((agent) => new Send(`${agent}_agent`, state));
         }
         console.info("[Route] sequential dispatch → %s", active[0]);
         return `${active[0]}_agent`;

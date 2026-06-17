@@ -23,8 +23,8 @@ describe("OrchidInvoker", () => {
 
     beforeEach(() => {
         graph = {
-            ainvoke: vi.fn().mockResolvedValue({ messages: [{ type: "ai", content: "Hello!" }] }),
-            astream: vi.fn().mockImplementation(async function* () {
+            invoke: vi.fn().mockResolvedValue({ messages: [{ type: "ai", content: "Hello!" }] }),
+            stream: vi.fn().mockImplementation(async function* () {
                 yield ["updates", { agent: { messages: [] } }];
             }),
         };
@@ -32,7 +32,7 @@ describe("OrchidInvoker", () => {
     });
 
     describe("invoke", () => {
-        it("calls graph.ainvoke and returns a result", async () => {
+        it("calls graph.invoke and returns a result", async () => {
             const result = await invoker.invoke({ message: "Hello" });
             expect(result).toBeInstanceOf(OrchidInvokeResult);
             expect(result.response).toBe("Hello!");
@@ -64,14 +64,14 @@ describe("OrchidInvoker", () => {
                 arguments: { x: 1 },
                 agentName: "test",
             });
-            graph.ainvoke.mockRejectedValueOnce(interrupt);
+            graph.invoke.mockRejectedValueOnce(interrupt);
             const result = await invoker.invoke({ message: "Hello", chatId: "c1" });
             expect(result).toBeInstanceOf(OrchidInvokeResult);
             expect(result.interrupted).toBe(true);
         });
 
         it("handles interrupt from raw tool_approval exception", async () => {
-            graph.ainvoke.mockRejectedValueOnce({
+            graph.invoke.mockRejectedValueOnce({
                 type: "tool_approval",
                 tool: "raw",
                 args: {},
@@ -82,7 +82,7 @@ describe("OrchidInvoker", () => {
         });
 
         it("re-throws unknown errors", async () => {
-            graph.ainvoke.mockRejectedValueOnce(new Error("boom"));
+            graph.invoke.mockRejectedValueOnce(new Error("boom"));
             await expect(invoker.invoke({ message: "Hello" })).rejects.toThrow("boom");
         });
     });
@@ -94,7 +94,7 @@ describe("OrchidInvoker", () => {
             );
         });
 
-        it("calls graph.ainvoke with resume command", async () => {
+        it("calls graph.invoke with resume command", async () => {
             const ch = mockCheckpointer();
             const inv = new OrchidInvoker({ graph, checkpointer: ch });
             const result = await inv.resume({ chatId: "c1" });
@@ -104,11 +104,11 @@ describe("OrchidInvoker", () => {
         it("passes approved flag through command", async () => {
             const ch = mockCheckpointer();
             const inv = new OrchidInvoker({ graph, checkpointer: ch });
-            graph.ainvoke.mockResolvedValueOnce({
+            graph.invoke.mockResolvedValueOnce({
                 messages: [{ type: "ai", content: "approved!" }],
             });
             await inv.resume({ chatId: "c1", approved: false });
-            const callArgs = graph.ainvoke.mock.calls[0];
+            const callArgs = graph.invoke.mock.calls[0];
             expect(callArgs[0].resume.approved).toBe(false);
         });
     });
@@ -122,16 +122,16 @@ describe("OrchidInvoker", () => {
             expect(events.length).toBe(1);
         });
 
-        it("passes streamMode to graph.astream", async () => {
+        it("passes streamMode to graph.stream", async () => {
             await invoker.stream({ message: "Hello", streamMode: "messages" });
-            const callArgs = graph.astream.mock.calls[0];
+            const callArgs = graph.stream.mock.calls[0];
             expect(callArgs[1].streamMode).toBe("messages");
         });
     });
 
     describe("prepareInvocation", () => {
         it("builds state with user message as human type", async () => {
-            graph.ainvoke.mockImplementation(async (state: any) => {
+            graph.invoke.mockImplementation(async (state: any) => {
                 expect(state.messages.length).toBeGreaterThanOrEqual(1);
                 expect(state.messages[0].type).toBe("human");
                 expect(state.messages[0].content).toBe("test message");
@@ -141,7 +141,7 @@ describe("OrchidInvoker", () => {
         });
 
         it("includes history messages", async () => {
-            graph.ainvoke.mockImplementation(async (state: any) => {
+            graph.invoke.mockImplementation(async (state: any) => {
                 expect(state.messages).toHaveLength(3);
                 expect(state.messages[0].type).toBe("human");
                 expect(state.messages[0].content).toBe("history msg");

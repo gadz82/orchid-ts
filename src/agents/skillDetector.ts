@@ -29,7 +29,7 @@ export class SkillDetector {
             `Respond with ONLY the skill name or "none", nothing else.`;
 
         try {
-            const result = await this.chatModel.ainvoke([{ role: "user", content: prompt }], {
+            const result = await this.chatModel.invoke([{ role: "user", content: prompt }], {
                 temperature: 0,
             });
             const text = (result.content || "").trim().replace(/^["']|["']$/g, "");

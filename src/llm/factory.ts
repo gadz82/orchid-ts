@@ -1,16 +1,17 @@
 import { getLlmKwargs } from "./keys.js";
+import type { ChatModelLike } from "../core/helpers.js";
 
 interface BuildChatModelOpts {
     temperature?: number;
     fallbackModel?: string | null;
     retryAttempts?: number;
-}
-
-interface ChatModelLike {
-    invoke(
-        messages: Array<{ role: string; content: string }>,
-        opts?: Record<string, unknown>,
-    ): Promise<{ content: string }>;
+    /**
+     * Override for the provider's API base URL. Currently used for
+     * Ollama (`ollama/...` and `ollama_chat/...` prefixes). Takes
+     * precedence over the `OLLAMA_API_BASE` env var. Mirrors the
+     * Python `llm.ollama_api_base` config field.
+     */
+    apiBase?: string | null;
 }
 
 interface ChatModelConstructor {
@@ -42,6 +43,7 @@ async function buildFromProvider(
     modelName: string,
     fullModel: string,
     temperature: number,
+    apiBaseOverride?: string | null,
 ): Promise<ChatModelLike> {
     const mod = await import(entry.pkgName);
     const Cls = (mod as Record<string, ChatModelConstructor>)[entry.className];
@@ -56,8 +58,12 @@ async function buildFromProvider(
     if (kwargs["api_key"]) {
         config["apiKey"] = kwargs["api_key"];
     }
-    if (kwargs["api_base"]) {
-        config["baseUrl"] = kwargs["api_base"];
+    // Config-provided `apiBase` takes precedence over the env var
+    // (`OLLAMA_API_BASE`). The env var is the fallback for setups that
+    // don't pass `apiBase` through `buildChatModel` opts.
+    const resolvedApiBase = apiBaseOverride ?? kwargs["api_base"];
+    if (resolvedApiBase) {
+        config["baseUrl"] = resolvedApiBase;
     }
 
     return new Cls(config);
@@ -91,7 +97,10 @@ async function buildFallback(model: string, temperature: number): Promise<ChatMo
     return new MockModel(model);
 }
 
-export async function buildChatModel(model: string, opts?: BuildChatModelOpts): Promise<unknown> {
+export async function buildChatModel(
+    model: string,
+    opts?: BuildChatModelOpts,
+): Promise<ChatModelLike | null> {
     const temperature = opts?.temperature ?? 0.2;
     const fallbackModel = opts?.fallbackModel ?? null;
 
@@ -100,7 +109,7 @@ export async function buildChatModel(model: string, opts?: BuildChatModelOpts): 
 
         try {
             const modelName = stripPrefix(model, entry.prefix);
-            return await buildFromProvider(entry, modelName, model, temperature);
+            return await buildFromProvider(entry, modelName, model, temperature, opts?.apiBase);
         } catch (err) {
             console.error("[LLM] %s failed for model %s: %s", entry.pkgName, model, err);
         }
@@ -132,5 +141,12 @@ class MockModel implements ChatModelLike {
         return {
             content: `[Mock response from ${this.model}]`,
         };
+    }
+
+    async ainvoke(
+        _messages: Array<{ role: string; content: string }>,
+        _opts?: Record<string, unknown>,
+    ): Promise<{ content: string }> {
+        return this.invoke(_messages, _opts);
     }
 }
