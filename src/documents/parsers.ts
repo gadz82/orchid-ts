@@ -168,7 +168,6 @@ export class ImageParser extends DocumentParser {
         const b64 = fileBytes.toString("base64");
 
         try {
-            // @ts-expect-error — @langchain/openai may not be installed
             const { ChatOpenAI } = await import("@langchain/openai");
             const { HumanMessage } = await import("@langchain/core/messages");
 

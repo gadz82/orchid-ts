@@ -55,8 +55,11 @@ export class Orchid {
         try {
             const { buildGraph } = await import("../graph/builder.js");
             graph = await buildGraph({ config, runtime });
-        } catch {
+        } catch (exc: unknown) {
+            const err = exc instanceof Error ? exc : new Error(String(exc));
             console.warn("buildGraph not available, continuing without compiled graph");
+            console.error("buildGraph error:", err.message);
+            if (err.stack) console.error(err.stack);
         }
 
         return new Orchid({ runtime, graph });

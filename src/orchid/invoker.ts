@@ -113,7 +113,9 @@ export class OrchidInvoker {
     }): Promise<AsyncIterable<[string, unknown]>> {
         const { state, config } = this.prepareInvocation(opts);
         const mode = opts.streamMode ?? "updates";
-        return this.graph.astream(state, { ...config, streamMode: mode });
+        // `@langchain/langgraph@0.2.74` exposes `Pregel.stream()` — there is
+        // no `astream()` on the compiled graph (that's the Python name).
+        return this.graph.stream(state, { ...config, streamMode: mode });
     }
 
     private prepareInvocation(opts: {
