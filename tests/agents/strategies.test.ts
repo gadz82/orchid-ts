@@ -152,7 +152,7 @@ describe("LLMDecidesStrategy", () => {
         ];
 
         const mockChatModel = {
-            ainvoke: vi.fn().mockResolvedValue({
+            invoke: vi.fn().mockResolvedValue({
                 content: JSON.stringify([{ tool: "tool_a", arguments: { x: 1 } }]),
             }),
         };
@@ -179,7 +179,7 @@ describe("LLMDecidesStrategy", () => {
         );
 
         expect(client.listTools).toHaveBeenCalledWith(auth);
-        expect(mockChatModel.ainvoke).toHaveBeenCalled();
+        expect(mockChatModel.invoke).toHaveBeenCalled();
         expect(client.callTool).toHaveBeenCalledWith("tool_a", { x: 1 }, auth);
         expect(results).toHaveProperty("tool_a", "result");
     });
@@ -191,7 +191,7 @@ describe("LLMDecidesStrategy", () => {
         ];
 
         const mockChatModel = {
-            ainvoke: vi.fn().mockResolvedValue({
+            invoke: vi.fn().mockResolvedValue({
                 content: JSON.stringify([{ tool: "tool_a", arguments: { arg: "val" } }]),
             }),
         };
@@ -214,7 +214,7 @@ describe("LLMDecidesStrategy", () => {
         );
 
         // The prompt should only include tool_a (the whitelisted one)
-        const promptArg = mockChatModel.ainvoke.mock.calls[0][0];
+        const promptArg = mockChatModel.invoke.mock.calls[0][0];
         const promptStr = promptArg[0].content as string;
         expect(promptStr).toContain("tool_a");
         expect(promptStr).not.toContain("tool_b");
@@ -249,7 +249,7 @@ describe("LLMDecidesStrategy", () => {
 
     it("falls back to all strategy on invalid JSON response", async () => {
         const mockChatModel = {
-            ainvoke: vi.fn().mockResolvedValue({ content: "not valid json {{{" }),
+            invoke: vi.fn().mockResolvedValue({ content: "not valid json {{{" }),
         };
 
         const client = {
@@ -275,7 +275,7 @@ describe("LLMDecidesStrategy", () => {
 
     it("falls back to all strategy on LLM API error", async () => {
         const mockChatModel = {
-            ainvoke: vi.fn().mockRejectedValue(new Error("API error")),
+            invoke: vi.fn().mockRejectedValue(new Error("API error")),
         };
 
         const client = {

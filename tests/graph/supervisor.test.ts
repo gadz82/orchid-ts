@@ -19,11 +19,7 @@ function state(overrides?: Partial<GraphState>): GraphState {
 
 function makeChatModel(content = "{}") {
     return {
-        ainvoke: vi.fn().mockResolvedValue({ content }),
-        withStructuredOutput: vi.fn().mockReturnValue({
-            invoke: vi.fn().mockResolvedValue({ content }),
-            ainvoke: vi.fn().mockResolvedValue({ content }),
-        }),
+        invoke: vi.fn().mockResolvedValue({ content }),
     };
 }
 
@@ -42,18 +38,9 @@ describe("createSupervisorNode", () => {
 
     it("routes to single agent with parallel dispatch", async () => {
         const chatModelWithOutput = {
-            ainvoke: vi.fn().mockResolvedValue({
+            invoke: vi.fn().mockResolvedValue({
                 content:
                     '{"reasoning": "menu lookup", "execution": "parallel", "agents": ["menu"], "skill": null, "directResponse": null}',
-            }),
-            withStructuredOutput: vi.fn().mockReturnValue({
-                invoke: vi.fn().mockResolvedValue({
-                    reasoning: "menu lookup",
-                    execution: "parallel",
-                    agents: ["menu"],
-                    skill: null,
-                    directResponse: null,
-                }),
             }),
         };
 
@@ -77,17 +64,15 @@ describe("createSupervisorNode", () => {
     });
 
     it("handles direct response from LLM", async () => {
+        // The supervisor now always uses the manual YAML/JSON parse path
+        // (`invokeAndParseManually`), not `withStructuredOutput`. Mock
+        // the chat model's `invoke()` to return a direct-response string.
         const chatModelWithOutput = {
-            ainvoke: vi.fn().mockResolvedValue({ content: "{}" }),
-            withStructuredOutput: vi.fn().mockReturnValue({
-                invoke: vi.fn().mockResolvedValue({
-                    reasoning: "greeting",
-                    execution: "parallel",
-                    agents: [],
-                    skill: null,
-                    directResponse: "Hello! How can I help you today?",
+            invoke: vi
+                .fn()
+                .mockResolvedValue({
+                    content: 'directResponse: "Hello! How can I help you today?"',
                 }),
-            }),
         };
 
         const node = createSupervisorNode({
@@ -109,15 +94,8 @@ describe("createSupervisorNode", () => {
 
     it("routes sequential when multiple dependent agents", async () => {
         const chatModelWithOutput = {
-            ainvoke: vi.fn().mockResolvedValue({ content: "{}" }),
-            withStructuredOutput: vi.fn().mockReturnValue({
-                invoke: vi.fn().mockResolvedValue({
-                    reasoning: "search then format",
-                    execution: "sequential",
-                    agents: ["search", "menu"],
-                    skill: null,
-                    directResponse: null,
-                }),
+            invoke: vi.fn().mockResolvedValue({
+                content: 'reasoning: "search then format"\nexecution: sequential\nagents: [search, menu]\nskill: null\ndirectResponse: null',
             }),
         };
 
@@ -142,10 +120,7 @@ describe("createSupervisorNode", () => {
 
     it("handles LLM API error with graceful fallback", async () => {
         const failingModel = {
-            ainvoke: vi.fn().mockRejectedValue(new Error("503 Service Unavailable")),
-            withStructuredOutput: vi.fn().mockReturnValue({
-                invoke: vi.fn().mockRejectedValue(new Error("503 Service Unavailable")),
-            }),
+            invoke: vi.fn().mockRejectedValue(new Error("503 Service Unavailable")),
         };
 
         const node = createSupervisorNode({
@@ -169,16 +144,11 @@ describe("createSupervisorNode", () => {
 
     it("handles unrecognized agent names with fallback", async () => {
         const chatModelWithOutput = {
-            ainvoke: vi.fn().mockResolvedValue({ content: "{}" }),
-            withStructuredOutput: vi.fn().mockReturnValue({
-                invoke: vi.fn().mockResolvedValue({
-                    reasoning: "using nonexistent agent",
-                    execution: "parallel",
-                    agents: ["nonexistent"],
-                    skill: null,
-                    directResponse: null,
+            invoke: vi
+                .fn()
+                .mockResolvedValue({
+                    content: 'reasoning: "using nonexistent agent"\nexecution: parallel\nagents: [nonexistent]\nskill: null\ndirectResponse: null',
                 }),
-            }),
         };
 
         const node = createSupervisorNode({
@@ -200,10 +170,7 @@ describe("createSupervisorNode", () => {
 
     it("triggers synthesis when agents have produced output and none pending", async () => {
         const chatModelWithOutput = {
-            ainvoke: vi.fn().mockResolvedValue({ content: "synthesis" }),
-            withStructuredOutput: vi.fn().mockReturnValue({
-                invoke: vi.fn().mockResolvedValue({}),
-            }),
+            invoke: vi.fn().mockResolvedValue({ content: "synthesis" }),
         };
 
         const node = createSupervisorNode({
@@ -230,10 +197,7 @@ describe("createSupervisorNode", () => {
 
     it("re-routes to supervisor when pending agents remain", async () => {
         const chatModelWithOutput = {
-            ainvoke: vi.fn().mockResolvedValue({ content: "handoff" }),
-            withStructuredOutput: vi.fn().mockReturnValue({
-                invoke: vi.fn().mockResolvedValue({}),
-            }),
+            invoke: vi.fn().mockResolvedValue({ content: "handoff" }),
         };
 
         const node = createSupervisorNode({

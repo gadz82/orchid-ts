@@ -86,8 +86,12 @@ export class Orchid {
         config?: Record<string, unknown>,
     ): Promise<OrchidInvokeResult> {
         this.ensureOpen();
-        return await this.invoker.invoke({
-            message: (input as any).message ?? "",
+        // Pass the full state through to the invoker so the human
+        // message in `input.messages` is preserved (the previous
+        // implementation extracted only `input.message` (a string) and
+        // rebuilt a new state, silently dropping the prepared history
+        // and the user query injected by the API's `prepareGraphState`).
+        return await this.invoker.invokeState(input, {
             chatId: (config as any)?.configurable?.thread_id ?? null,
             auth: (config as any)?.configurable?.auth_context as OrchidAuthContext,
         });
@@ -98,8 +102,7 @@ export class Orchid {
         config?: Record<string, unknown>,
     ): Promise<AsyncIterable<[string, unknown]>> {
         this.ensureOpen();
-        return await this.invoker.stream({
-            message: (input as any).message ?? "",
+        return await this.invoker.streamState(input, {
             chatId: (config as any)?.configurable?.thread_id ?? null,
             auth: (config as any)?.configurable?.auth_context as OrchidAuthContext,
         });

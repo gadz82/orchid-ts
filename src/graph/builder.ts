@@ -17,6 +17,7 @@ import { authFromConfig } from "../core/runConfig.js";
 import type { ChatModelLike } from "../core/helpers.js";
 import type { OrchidVectorReader } from "../core/repository.js";
 import type { OrchidRuntime } from "../orchid/runtime.js";
+import { buildChatModel } from "../llm/factory.js";
 
 const END = "__end__";
 
@@ -58,15 +59,13 @@ class AgentNodeWrapper {
 
         const decomposerUpdate = await this.runDecomposer(state, auth);
         if (decomposerUpdate !== null) {
-            decomposerUpdate.activeAgents = [];
             return decomposerUpdate;
         }
 
-        const agentResult = await this.runAgent(state);
+        const agentResult = await this.runAgent(state, auth);
 
         await this.runOutputGuardrails(state, auth, agentResult);
 
-        agentResult.activeAgents = [];
         return agentResult;
     }
 
@@ -139,10 +138,25 @@ class AgentNodeWrapper {
         }
     }
 
-    private async runAgent(state: GraphState): Promise<Partial<GraphState>> {
+    private async runAgent(
+        state: GraphState,
+        auth: OrchidAuthContext | null,
+    ): Promise<Partial<GraphState>> {
         try {
-            const result = await (this.agent as any).run(state);
-            return result as Partial<GraphState>;
+            // The agent's `run()` method reads auth from the per-process
+            // run-context AsyncLocalStorage (`OrchidAgent.getRunContext()`),
+            // not from the LangGraph `RunnableConfig`. The supervisor and
+            // guardrail nodes read auth directly from `authFromConfig(config)`,
+            // but the agent's `run()` has no config parameter — it must
+            // inherit auth via the ContextVar. Bind the auth here so the
+            // agent's downstream code (skill execution, RAG, MCP) can
+            // resolve `auth.tenantKey` / `auth.userId` etc. Without this
+            // the agent returns the placeholder "no auth context" error.
+            const { runWithContext } = await import("../core/agent.js");
+            return await runWithContext(
+                { auth, correlationId: null, chatId: state.chatId ?? null, messageId: null },
+                () => (this.agent as any).run(state),
+            );
         } catch (exc: unknown) {
             const errorMsg = String(exc instanceof Error ? exc.message : exc);
             console.error(
@@ -245,22 +259,6 @@ async function importClass(classPath: string): Promise<unknown> {
 }
 
  
-async function buildChatModel(
-    model: string,
-    opts?: Record<string, unknown>,
-): Promise<ChatModelLike | null> {
-    try {
-        const modPath = "../llm/index.js";
-        const mod = await import(modPath);
-        if (mod.buildChatModel && typeof mod.buildChatModel === "function") {
-            return mod.buildChatModel(model, opts) as ChatModelLike;
-        }
-    } catch {
-        // llm module not available
-    }
-    return null;
-}
-
 async function instantiateAgent(
     _name: string,
     agentConfig: OrchidAgentConfig,
@@ -357,6 +355,7 @@ export async function buildGraph(opts: {
 
     const defaultFallback = config.defaults.llm.fallbackModel ?? null;
     const defaultRetry = config.defaults.llm.retryAttempts ?? 0;
+    const defaultOllamaApiBase = config.defaults.llm.ollamaApiBase ?? null;
 
     let defaultChatModel: ChatModelLike | null = runtime.chatModel;
     if (!defaultChatModel) {
@@ -364,6 +363,7 @@ export async function buildGraph(opts: {
             const built = await buildChatModel(defaultModel, {
                 fallbackModel: defaultFallback ?? undefined,
                 retryAttempts: defaultRetry,
+                apiBase: defaultOllamaApiBase ?? undefined,
             });
             if (built) defaultChatModel = built;
         } catch {
@@ -623,21 +623,45 @@ export async function buildGraph(opts: {
         memory,
     });
 
-    // Build graph using LangGraph adapter
+    // Build graph using LangGraph adapter. Channel definitions are
+    // passed to StateGraph. For parallel fan-out (the supervisor routes
+    // to multiple agents simultaneously via `Send`), the `messages`
+    // channel must use a reducer that accepts concurrent updates. The
+    // default `LastValue` reducer allows only one update per step and
+    // throws `INVALID_CONCURRENT_GRAPH_UPDATE` when two parallel agents
+    // both return their own `messages` array. The same applies to
+    // `mcpContext`, `ragContext`, `skillInstructions`, `mcpAuthStatus`,
+    // and the mini-agent* channels — any channel a parallel agent
+    // can write to needs a merge reducer.
+    //
+    // `activeAgents` / `pendingAgents` use the default `LastValue`
+    // reducer: the supervisor overwrites them on each routing
+    // decision. The agent nodes do not write to these channels (see
+    // `AgentNodeWrapper.__call__`).
+    const mergeArrays = (a: unknown, b: unknown) => {
+        if (a == null) return b;
+        if (b == null) return a;
+        return ([] as unknown[]).concat(a, b);
+    };
+    const mergeObjects = (a: unknown, b: unknown) => {
+        if (a == null) return b;
+        if (b == null) return a;
+        return { ...(a as Record<string, unknown>), ...(b as Record<string, unknown>) };
+    };
     const g = await LangGraphAdapter.createStateGraph({
-        messages: null,
-        activeAgents: null,
-        pendingAgents: null,
-        executionMode: null,
-        finalResponse: null,
-        mcpContext: null,
-        ragContext: null,
-        skillInstructions: null,
-        hasOutputGuardrails: null,
-        mcpAuthStatus: null,
-        miniAgentDecisions: null,
-        miniAgentOutcomes: null,
-        chatId: null,
+        messages: { value: null, reducer: mergeArrays, default: () => [] },
+        activeAgents: { value: null, default: () => [] },
+        pendingAgents: { value: null, default: () => [] },
+        executionMode: { value: null, default: () => null },
+        finalResponse: { value: null, default: () => null },
+        mcpContext: { value: null, reducer: mergeObjects, default: () => ({}) },
+        ragContext: { value: null, reducer: mergeObjects, default: () => ({}) },
+        skillInstructions: { value: null, reducer: mergeObjects, default: () => ({}) },
+        hasOutputGuardrails: { value: null, default: () => false },
+        mcpAuthStatus: { value: null, reducer: mergeObjects, default: () => ({}) },
+        miniAgentDecisions: { value: null, reducer: mergeObjects, default: () => ({}) },
+        miniAgentOutcomes: { value: null, reducer: mergeObjects, default: () => ({}) },
+        chatId: { value: null, default: () => "" },
     }) as Record<string, unknown>;
 
     // Bind methods to `g` so `this` is preserved when called as standalone
@@ -728,7 +752,7 @@ export async function buildGraph(opts: {
     // Supervisor conditional edges
     addConditionalEdges("supervisor", (state: GraphState) => {
         const result = routeToAgents(state);
-        if (Array.isArray(result)) return result;
+        if (Array.isArray(result)) return result as unknown[];
         if (result === "__end__") return END;
         return result;
     });

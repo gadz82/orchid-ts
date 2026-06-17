@@ -88,6 +88,6 @@ export async function llmComplete(
     if (opts.responseFormat) {
         kwargs["response_format"] = opts.responseFormat;
     }
-    const result = await chatModel.ainvoke(messages, kwargs);
+    const result = await chatModel.invoke(messages, kwargs);
     return result.content ?? "";
 }

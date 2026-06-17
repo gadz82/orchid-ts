@@ -15,10 +15,10 @@ function state(overrides?: Partial<GraphState>): GraphState {
 
 function makeChatModel(content = "synthesised response") {
     return {
-        ainvoke: vi.fn().mockResolvedValue({ content }),
+        invoke: vi.fn().mockResolvedValue({ content }),
         withStructuredOutput: vi.fn().mockReturnValue({
             invoke: vi.fn().mockResolvedValue({ content }),
-            ainvoke: vi.fn().mockResolvedValue({ content }),
+            invoke: vi.fn().mockResolvedValue({ content }),
         }),
     };
 }
@@ -116,7 +116,7 @@ describe("ResponseSynthesizer", () => {
             });
             const result = await s.synthesise(st);
             expect(result.finalResponse).toBe("Menu is ready");
-            expect(chatModel.ainvoke).not.toHaveBeenCalled();
+            expect(chatModel.invoke).not.toHaveBeenCalled();
         });
 
         it("uses LLM synthesis path when multiple agents", async () => {
@@ -134,7 +134,7 @@ describe("ResponseSynthesizer", () => {
             });
             const result = await s.synthesise(st);
             expect(result.finalResponse).toBe("synthesised response");
-            expect(chatModel.ainvoke).toHaveBeenCalled();
+            expect(chatModel.invoke).toHaveBeenCalled();
             expect(result.activeAgents).toEqual([]);
             expect(result.pendingAgents).toEqual([]);
         });
@@ -154,13 +154,13 @@ describe("ResponseSynthesizer", () => {
                 ],
             });
             await s.synthesise(st);
-            const callArgs = chatModel.ainvoke.mock.calls[0][0] as Array<Record<string, unknown>>;
+            const callArgs = chatModel.invoke.mock.calls[0][0] as Array<Record<string, unknown>>;
             const systemMsg = callArgs.find((m) => m.role === "system");
             expect(systemMsg).toBeDefined();
         });
 
         it("handles LLM API errors gracefully with fallback", async () => {
-            chatModel.ainvoke.mockRejectedValue(new Error("API rate limit exceeded"));
+            chatModel.invoke.mockRejectedValue(new Error("API rate limit exceeded"));
             const s = new ResponseSynthesizer({
                 model: "test",
                 supervisorConfig: { ...supConfig, skipSynthesisWhenSingleAgent: false },
@@ -179,7 +179,7 @@ describe("ResponseSynthesizer", () => {
         });
 
         it("handles 503/high demand errors with specific message", async () => {
-            chatModel.ainvoke.mockRejectedValue(new Error("503 Service Unavailable — high demand"));
+            chatModel.invoke.mockRejectedValue(new Error("503 Service Unavailable — high demand"));
             const s = new ResponseSynthesizer({
                 model: "test",
                 supervisorConfig: { ...supConfig, skipSynthesisWhenSingleAgent: false },
@@ -209,7 +209,7 @@ describe("ResponseSynthesizer", () => {
                 mcpContext: { menu: { items: ["a", "b"] } },
             });
             await s.synthesise(st);
-            const callArgs = chatModel.ainvoke.mock.calls[0][0] as Array<Record<string, unknown>>;
+            const callArgs = chatModel.invoke.mock.calls[0][0] as Array<Record<string, unknown>>;
             const jsonMsg = callArgs.find(
                 (m) =>
                     m.role === "user" &&

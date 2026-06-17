@@ -17,7 +17,7 @@ function state(overrides?: Partial<GraphState>): GraphState {
 }
 
 function makeChatModel(content = "handoff message") {
-    return { ainvoke: vi.fn().mockResolvedValue({ content }) };
+    return { invoke: vi.fn().mockResolvedValue({ content }) };
 }
 
 describe("SequentialAdvancer", () => {
@@ -99,14 +99,14 @@ describe("SequentialAdvancer", () => {
 
         const result = await advancer.advance(st, ["summarise"]);
 
-        const llmCallArgs = chatModel.ainvoke.mock.calls[0][0] as Array<Record<string, unknown>>;
+        const llmCallArgs = chatModel.invoke.mock.calls[0][0] as Array<Record<string, unknown>>;
         const systemMsg = llmCallArgs.find((m) => m.role === "system");
         expect(String(systemMsg!.content)).toContain("Summarise in 3 bullet points");
     });
 
     it("falls back to handoff message on LLM error", async () => {
         const chatModel = makeChatModel("");
-        chatModel.ainvoke.mockRejectedValue(new Error("timeout"));
+        chatModel.invoke.mockRejectedValue(new Error("timeout"));
         const advancer = new SequentialAdvancer({
             model: "test",
             agentDescriptions,
@@ -136,7 +136,7 @@ describe("SequentialAdvancer", () => {
 
         await advancer.advance(st, ["summarise"]);
 
-        const llmCallArgs = chatModel.ainvoke.mock.calls[0][0] as Array<Record<string, unknown>>;
+        const llmCallArgs = chatModel.invoke.mock.calls[0][0] as Array<Record<string, unknown>>;
         const dataMsg = llmCallArgs.find(
             (m) =>
                 m.role === "user" &&
@@ -158,7 +158,7 @@ describe("SequentialAdvancer", () => {
 
         await advancer.advance(state(), ["summarise", "format"]);
 
-        const llmCallArgs = chatModel.ainvoke.mock.calls[0][0] as Array<Record<string, unknown>>;
+        const llmCallArgs = chatModel.invoke.mock.calls[0][0] as Array<Record<string, unknown>>;
         const systemMsg = llmCallArgs.find((m) => m.role === "system");
         expect(String(systemMsg!.content)).toContain("format");
     });

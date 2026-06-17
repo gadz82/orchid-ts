@@ -80,7 +80,7 @@ export function aggregatorNodeFactory(opts: {
 
         let synthesis: string;
         try {
-            const response = await chatModel.ainvoke([{ role: "system", content: prompt }]);
+            const response = await chatModel.invoke([{ role: "system", content: prompt }]);
             synthesis =
                 typeof response.content === "string"
                     ? response.content
