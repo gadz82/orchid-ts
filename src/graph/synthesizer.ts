@@ -78,11 +78,15 @@ export class ResponseSynthesizer {
         const sup = this.supervisorConfig;
         const allMessages = (state.messages ?? []) as Array<Record<string, unknown>>;
 
+        const isHuman = (m: Record<string, unknown>): boolean => {
+            const t = typeof m["type"] === "string" ? m["type"] : "";
+            const r = typeof m["role"] === "string" ? m["role"] : "";
+            return t === "human" || r === "user" || r === "human";
+        };
+
         let lastUserIdx = -1;
         for (let i = 0; i < allMessages.length; i++) {
-            const msgType =
-                typeof allMessages[i]["type"] === "string" ? allMessages[i]["type"] : "";
-            if (msgType === "human") lastUserIdx = i;
+            if (isHuman(allMessages[i])) lastUserIdx = i;
         }
 
         const currentTurn = lastUserIdx >= 0 ? allMessages.slice(lastUserIdx) : allMessages;
@@ -155,10 +159,13 @@ export class ResponseSynthesizer {
 
         for (const msg of currentTurn) {
             const msgType = typeof msg["type"] === "string" ? msg["type"] : "";
+            const msgRole = typeof msg["role"] === "string" ? msg["role"] : "";
+            const mIsHuman = msgType === "human" || msgRole === "user" || msgRole === "human";
+            const mIsAi = msgType === "ai" || msgRole === "ai" || msgRole === "assistant";
             const content = String(msg["content"] ?? "");
-            if (msgType === "human") {
+            if (mIsHuman) {
                 llmMessages.push({ role: "user", content });
-            } else if (msgType === "ai") {
+            } else if (mIsAi) {
                 if (
                     content.startsWith("[Supervisor") ||
                     content.startsWith("[Conversation summary]")

@@ -163,7 +163,11 @@ export function buildLangChainTools(opts: BuildToolsOptions): ToolWrapper[] {
         contentSources,
     } = opts;
 
-    const approvalSet = approvalTools ?? new Set();
+    const approvalSet: Set<string> = approvalTools instanceof Set
+        ? approvalTools
+        : Array.isArray(approvalTools)
+            ? new Set(approvalTools)
+            : new Set();
     const tools: ToolWrapper[] = [];
 
     // Built-in tools

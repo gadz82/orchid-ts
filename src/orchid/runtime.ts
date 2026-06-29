@@ -1,5 +1,6 @@
 export class OrchidRuntime {
     config?: any;
+    configDir?: string;
     defaultModel: string = "";
     chatModel: any | null = null;
     reader: any | null = null;

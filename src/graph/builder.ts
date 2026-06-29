@@ -66,7 +66,9 @@ class AgentNodeWrapper {
 
         await this.runOutputGuardrails(state, auth, agentResult);
 
-        return agentResult;
+        // Signal completion — clear activeAgents so routeToAgents doesn't
+        // keep dispatching this agent node forever.
+        return { ...agentResult, activeAgents: [] };
     }
 
     // LangChain Runnable interface — LangGraph's `_coerceToRunnable` checks
@@ -267,6 +269,7 @@ async function instantiateAgent(
     defaultChatModel: ChatModelLike | null = null,
     defaultFallback: string | null = null,
     defaultRetry = 0,
+    defaultOllamaApiBase: string | null = null,
     mcpClientFactory: ((server: any) => any) | null = null,
     summaryConfig: Record<string, unknown> | null = null,
     graphStore: unknown = null,
@@ -307,12 +310,15 @@ async function instantiateAgent(
 
     let agentChatModel = defaultChatModel;
     try {
+        const agentOllamaApiBase =
+            agentLLM?.ollamaApiBase ? String(agentLLM.ollamaApiBase) : defaultOllamaApiBase;
         const built = await buildChatModel(agentModel, {
             fallbackModel: agentLLM?.fallbackModel
                 ? String(agentLLM.fallbackModel)
                 : (defaultFallback ?? undefined),
             retryAttempts: agentLLM?.retryAttempts ? Number(agentLLM.retryAttempts) : defaultRetry,
             temperature: agentLLM?.temperature ? Number(agentLLM.temperature) : 0.2,
+            apiBase: agentOllamaApiBase ?? undefined,
         });
         if (built) agentChatModel = built;
     } catch {
@@ -391,7 +397,10 @@ export async function buildGraph(opts: {
     if (config.tools && Object.keys(config.tools).length > 0) {
         try {
             const { loadToolsFromConfig } = await import("../config/toolRegistry.js");
-            loadToolsFromConfig(config.tools as Record<string, unknown>);
+            await loadToolsFromConfig(
+                config.tools as Record<string, unknown>,
+                runtime.configDir,
+            );
             console.info("[Graph] registered %d built-in tools", Object.keys(config.tools).length);
         } catch {
             // Tool registry not available
@@ -440,6 +449,7 @@ export async function buildGraph(opts: {
                 const built = await buildChatModel(memoryModel, {
                     fallbackModel: defaultFallback ?? undefined,
                     retryAttempts: 0,
+                    apiBase: defaultOllamaApiBase ?? undefined,
                 });
                 if (built) memoryChatModel = built;
             } catch {
@@ -526,6 +536,7 @@ export async function buildGraph(opts: {
             defaultChatModel,
             defaultFallback,
             defaultRetry,
+            defaultOllamaApiBase,
             mcpFactory,
             summaryCfg,
             graphStore,
@@ -585,6 +596,7 @@ export async function buildGraph(opts: {
             const built = await buildChatModel(defaultModel, {
                 fallbackModel: supFallback ?? undefined,
                 retryAttempts: defaultRetry,
+                apiBase: defaultOllamaApiBase ?? undefined,
             });
             if (built) supervisorChatModel = built;
         } catch {
@@ -599,6 +611,7 @@ export async function buildGraph(opts: {
             const built = await buildChatModel(sup.routingModel, {
                 fallbackModel: supFallback ?? undefined,
                 retryAttempts: defaultRetry,
+                apiBase: defaultOllamaApiBase ?? undefined,
             });
             if (built) {
                 routingChatModel = built;
@@ -634,10 +647,10 @@ export async function buildGraph(opts: {
     // and the mini-agent* channels — any channel a parallel agent
     // can write to needs a merge reducer.
     //
-    // `activeAgents` / `pendingAgents` use the default `LastValue`
-    // reducer: the supervisor overwrites them on each routing
-    // decision. The agent nodes do not write to these channels (see
-    // `AgentNodeWrapper.__call__`).
+    // `activeAgents` / `pendingAgents` need a replace-reducer
+    // (matching Python's `replace_list`) so parallel agent nodes can
+    // safely write `[]` to signal completion without crashing on
+    // concurrent LastValue writes.
     const mergeArrays = (a: unknown, b: unknown) => {
         if (a == null) return b;
         if (b == null) return a;
@@ -648,10 +661,13 @@ export async function buildGraph(opts: {
         if (b == null) return a;
         return { ...(a as Record<string, unknown>), ...(b as Record<string, unknown>) };
     };
+    const replaceList = (a: unknown, b: unknown): unknown[] => {
+        return (b as unknown[]) ?? (a as unknown[]) ?? [];
+    };
     const g = await LangGraphAdapter.createStateGraph({
         messages: { value: null, reducer: mergeArrays, default: () => [] },
-        activeAgents: { value: null, default: () => [] },
-        pendingAgents: { value: null, default: () => [] },
+        activeAgents: { value: null, reducer: replaceList, default: () => [] },
+        pendingAgents: { value: null, reducer: replaceList, default: () => [] },
         executionMode: { value: null, default: () => null },
         finalResponse: { value: null, default: () => null },
         mcpContext: { value: null, reducer: mergeObjects, default: () => ({}) },

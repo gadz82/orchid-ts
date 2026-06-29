@@ -70,7 +70,11 @@ export function resolveParallelSafety(
         return null;
     }
 
-    const approvalSet = approvalTools ?? new Set();
+    const approvalSet: Set<string> = approvalTools instanceof Set
+        ? approvalTools
+        : Array.isArray(approvalTools)
+            ? new Set(approvalTools)
+            : new Set();
     const builtinSafe = parallelSafeBuiltinTools ?? new Set();
     const overrides = mcpParallelOverrides ?? {};
 

@@ -261,31 +261,11 @@ async function invokeAndParseManually(
     let rawText = "";
     let usedDirectFetch = false;
 
-    // Try `structuredModel.invoke()` first (works for OpenAI / Anthropic / Gemini).
-    let primaryError: Error | null = null;
-    try {
-        if (typeof structuredModel.invoke !== "function") {
-            throw new Error("chat model has no invoke()");
-        }
-        const invokeFn = structuredModel.invoke.bind(structuredModel);
-        const result = (await invokeFn(llmMessages)) as { content?: unknown };
-        rawText = typeof result?.content === "string" ? result.content : "";
-    } catch (err) {
-        const errObj = err instanceof Error ? err : new Error(String(err));
-        primaryError = errObj;
-        console.warn(
-            "[supervisor] manual invoke failed: %s — will try direct Ollama fetch",
-            errObj.message,
-        );
-    }
-
-    // If the langchain call returned empty content, fall back to a
-    // direct HTTP call to the Ollama `/api/chat` endpoint. This works
-    // around a class of issues where `ChatOllama.invoke()` returns
-    // empty content inside the graph execution context (we observed
-    // this in `start_basketball.sh` — the same call works in
-    // isolation but returns empty inside the graph node wrapper).
-    if (!rawText.trim() && structuredModel.baseUrl) {
+    // When an ollama baseUrl is available, prefer a direct HTTP call
+    // with `format` set to the routing JSON schema so the API enforces
+    // structured output. This is far more reliable for small local
+    // models than relying on prompt instructions alone.
+    if (structuredModel.baseUrl) {
         try {
             const baseUrl = structuredModel.baseUrl.replace(/\/+$/, "");
             const modelName = (structuredModel as { model?: string }).model ?? "llama3.2";
@@ -296,6 +276,20 @@ async function invokeAndParseManually(
                     model: modelName,
                     messages: llmMessages,
                     stream: false,
+                    format: {
+                        type: "object",
+                        properties: {
+                            reasoning: { type: "string" },
+                            execution: {
+                                type: "string",
+                                enum: ["parallel", "sequential", "skill"],
+                            },
+                            agents: { type: "array", items: { type: "string" } },
+                            skill: { type: ["string", "null"] },
+                            directResponse: { type: ["string", "null"] },
+                        },
+                        required: ["reasoning", "execution", "agents", "skill", "directResponse"],
+                    },
                 }),
             });
             if (fetchResp.ok) {
@@ -306,23 +300,33 @@ async function invokeAndParseManually(
                 usedDirectFetch = true;
             }
         } catch (err) {
-            // Keep the original LangChain error for re-throw below.
-            primaryError = err instanceof Error ? err : new Error(String(err));
             console.warn(
                 "[supervisor] direct Ollama fetch failed: %s",
-                primaryError.message,
+                err instanceof Error ? err.message : String(err),
             );
         }
     }
 
-    // If both the LangChain call AND the direct Ollama fetch failed
-    // (or returned empty), re-throw the primary error so `routePhase`
-    // can apply the appropriate user-facing error response ("high
-    // demand" for 503, "rate limit" for 429, etc.). This prevents the
-    // graph from silently falling through to a generic "Sorry, I
-    // could not understand the routing decision" error.
-    if (!rawText.trim() && primaryError) {
-        throw primaryError;
+    // Fall back to LangChain's invoke() for non-Ollama models or if
+    // the direct fetch returned empty.
+    if (!rawText.trim()) {
+        try {
+            if (typeof structuredModel.invoke !== "function") {
+                throw new Error("chat model has no invoke()");
+            }
+            const invokeFn = structuredModel.invoke.bind(structuredModel);
+            const result = (await invokeFn(llmMessages)) as { content?: unknown };
+            rawText = typeof result?.content === "string" ? result.content : "";
+        } catch (err) {
+            const errObj = err instanceof Error ? err : new Error(String(err));
+            console.warn(
+                "[supervisor] invoke() failed: %s",
+                errObj.message,
+            );
+            if (!rawText.trim()) {
+                throw errObj;
+            }
+        }
     }
 
     if (usedDirectFetch) {
@@ -342,11 +346,27 @@ async function invokeAndParseManually(
     }
 
     // Many local models (Ollama llama3.2, etc.) respond with YAML-ish
-    // key/value text rather than strict JSON. Parse the three fields we
-    // care about with permissive regexes and fall through to a default
-    // decision if any are missing.
-    const pickField = (name: string): string | null => {
-        const m = rawText.match(new RegExp(`(?:^|\\n)\\s*${name}\\s*:\\s*(.+)`, "i"));
+    // key/value text rather than strict JSON. Some models wrap field
+    // names in incomplete markdown bold markers (e.g. **agents**: or
+    // **agents:**). Strip those before extracting fields with the
+    // permissive regex so both `agents:` and `**Agents:**` are matched.
+    //
+    // The colon can be missing — some models output `field\nvalue`
+    // instead of `field: value`.
+    const strippedText = rawText.replace(/\*{1,2}([a-zA-Z_]+)\*{0,2}\s*:?/g, "$1:");
+    const pickField = (name: string, source: string = strippedText): string | null => {
+        // Pattern 1: `field: value` (single line, colon present)
+        let m = source.match(new RegExp(`(?:^|\\n)\\s*${name}\\s*:\\s*([^\\n]+)`, "i"));
+        if (m) return m[1].trim().replace(/^["']|["']$/g, "");
+        // Pattern 2: `field:\nmultiline value`
+        m = source.match(
+            new RegExp(`(?:^|\\n)\\s*${name}\\s*:\\s*\\n([\\s\\S]*?)(?=\\n[a-zA-Z_]+\\s*:?|$)`, "i"),
+        );
+        if (m) return m[1].trim().replace(/^["']|["']$/g, "");
+        // Pattern 3: `field\nvalue` (no colon)
+        m = source.match(
+            new RegExp(`(?:^|\\n)\\s*${name}\\s*\\n([\\s\\S]*?)(?=\\n[a-zA-Z_]+\\s*:?|$)`, "i"),
+        );
         return m ? m[1].trim().replace(/^["']|["']$/g, "") : null;
     };
     const agentsRaw = pickField("agents") ?? pickField("agent");
@@ -363,13 +383,18 @@ async function invokeAndParseManually(
     const execution: OrchidRoutingDecision["execution"] =
         executionRaw === "sequential" ? "sequential" : "parallel";
 
-    if (agents.length > 0 || directRaw) {
+    let direct: string | null = directRaw ?? null;
+    if (direct && /^(null|none)$/i.test(direct.trim())) {
+        direct = null;
+    }
+
+    if (agents.length > 0 || direct) {
         return {
             reasoning: reasoningRaw ?? "",
             execution,
             agents,
             skill: null,
-            directResponse: directRaw ?? null,
+            directResponse: direct,
         };
     }
 

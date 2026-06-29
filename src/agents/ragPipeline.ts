@@ -31,7 +31,7 @@ export class RagPipeline {
         retrievalConfig?: Record<string, unknown> | null;
         excludeDynamic?: boolean;
     }): Promise<Array<Record<string, unknown>>> {
-        if (!opts.enabled) return [];
+        if (!opts.enabled || !this.reader) return [];
 
         const strategyName = opts.retrievalStrategy || "simple";
 

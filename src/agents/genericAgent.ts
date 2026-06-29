@@ -148,6 +148,24 @@ export class GenericAgent extends OrchidAgent {
                 this._chatModel,
                 history,
             );
+        } else {
+            // When no pre-transformers are configured, still enrich
+            // short follow-up queries with recent conversation context
+            // so tools can resolve references (e.g. "profilo psicologico?"
+            // should link back to "parlami di lebron james").
+            if (rawQuery.length < 80) {
+                const recentHistory = extractConversationHistory(state, {
+                    maxTurns: 2,
+                    maxChars: 300,
+                    skipPrefixes: ["[Supervisor"],
+                });
+                if (recentHistory.length > 0) {
+                    const contextStr = recentHistory
+                        .map((m) => `${m.role}: ${m.content}`)
+                        .join(" | ");
+                    query = `${rawQuery}\n(Prior conversation context: ${contextStr})`;
+                }
+            }
         }
 
         const scope = this.buildScope(auth, state);
