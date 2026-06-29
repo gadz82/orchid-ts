@@ -5,6 +5,25 @@ const ARRAY_SECTION_ENV: Record<string, string> = {
     content_sources: "CONTENT_SOURCES",
 };
 
+function extractYamlText(rawText: string, configPath: string): string {
+    if (!configPath.endsWith(".md")) {
+        return rawText;
+    }
+
+    // Markdown config: extract YAML frontmatter between leading --- delimiters.
+    const text = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    if (!text.startsWith("---\n")) {
+        return "";
+    }
+    const openingEnd = text.indexOf("\n") + 1;
+    const rest = text.slice(openingEnd);
+    const delimIdx = rest.indexOf("\n---");
+    if (delimIdx === -1) {
+        return "";
+    }
+    return rest.slice(0, delimIdx);
+}
+
 const YAML_TO_ENV: Record<string, Record<string, string>> = {
     agents: { config_path: "AGENTS_CONFIG_PATH" },
     llm: {
@@ -79,7 +98,10 @@ export function applyYamlToEnv(
         return 0;
     }
 
-    const data = parseYaml(rawText) as Record<string, unknown> | null;
+    const yamlText = extractYamlText(rawText, configPath);
+    if (!yamlText.trim()) return 0;
+
+    const data = parseYaml(yamlText) as Record<string, unknown> | null;
     if (!data || typeof data !== "object") return 0;
 
     const skip = options?.skipSections ?? new Set<string>();
