@@ -243,7 +243,7 @@ function createAgentNode(
 
 // ── Agent Instantiation ───────────────────────────────────────────
 
-async function importClass(classPath: string): Promise<unknown> {
+async function importClass(classPath: string, configDir?: string): Promise<unknown> {
     const parts = classPath.split("#");
     const modulePath = parts[0];
     const exportName = parts[1] ?? "default";
@@ -251,7 +251,8 @@ async function importClass(classPath: string): Promise<unknown> {
     if (modulePath.startsWith(".")) {
         const { pathToFileURL } = await import("node:url");
         const { resolve } = await import("node:path");
-        const resolved = resolve(process.cwd(), modulePath);
+        const baseDir = configDir && resolve(configDir) !== resolve(process.cwd()) ? configDir : process.cwd();
+        const resolved = resolve(baseDir, modulePath);
         const mod = await import(pathToFileURL(resolved).href);
         return mod[exportName] ?? mod;
     }
@@ -275,13 +276,14 @@ async function instantiateAgent(
     graphStore: unknown = null,
     contentSources: unknown = null,
     _uploadNamespace = "uploads",
+    configDir?: string,
 ): Promise<OrchidAgent> {
     let cls: new (opts: Record<string, unknown>) => OrchidAgent;
 
     const classPath = (agentConfig as Record<string, unknown>).class as string | null;
     if (classPath) {
         try {
-            const resolved = await importClass(classPath);
+            const resolved = await importClass(classPath, configDir);
             cls = resolved as new (opts: Record<string, unknown>) => OrchidAgent;
         } catch {
             const { GenericAgent } = await import("../agents/genericAgent.js");
@@ -542,6 +544,7 @@ export async function buildGraph(opts: {
             graphStore,
             runtime.contentSources,
             runtime.uploadNamespace,
+            runtime.configDir,
         );
         agents.push(agent);
 
