@@ -398,10 +398,74 @@ export function effectiveRag(
     return merged as unknown as z.infer<typeof OrchidRAGConfigSchema>;
 }
 
+// ── Pre-apply raw YAML defaults (before zod parsing) ────────────
+//
+// Zod schemas set their own defaults for every field (e.g. rag.enabled
+// defaults to true).  If we parse first and then try to apply YAML
+// defaults with inheritField(), the zod defaults shadow the YAML values
+// because the fields are already populated.  We fix this by merging raw
+// YAML defaults into the raw agent data BEFORE zod ever sees it.  This
+// way agents that don't explicitly set a field get the YAML default, and
+// zod only fills in what's still missing.
+
+function preApplyRawDefaults(rawData: Record<string, unknown>): void {
+    const rawDefaults = rawData.defaults as Record<string, unknown> | undefined;
+    const rawAgents = rawData.agents as Record<string, Record<string, unknown>> | undefined;
+    if (!rawDefaults || !rawAgents) return;
+
+    const rawRag = rawDefaults.rag as Record<string, unknown> | undefined;
+    if (rawRag) {
+        for (const agent of Object.values(rawAgents)) {
+            _preApplyRagDefaults(agent, rawRag);
+        }
+    }
+
+    const rawLlm = rawDefaults.llm as Record<string, unknown> | undefined;
+    if (rawLlm) {
+        for (const agent of Object.values(rawAgents)) {
+            _preApplyLlmDefaults(agent, rawLlm);
+        }
+    }
+}
+
+function _preApplyRagDefaults(agent: Record<string, unknown>, rawRag: Record<string, unknown>): void {
+    if (!agent.rag || typeof agent.rag !== "object") {
+        agent.rag = { ...rawRag };
+    } else {
+        const aRag = agent.rag as Record<string, unknown>;
+        for (const [key, value] of Object.entries(rawRag)) {
+            if (!(key in aRag) || aRag[key] === undefined || aRag[key] === null) {
+                aRag[key] = value;
+            }
+        }
+    }
+
+    const children = agent.children as Record<string, Record<string, unknown>> | undefined;
+    if (children) {
+        for (const child of Object.values(children)) {
+            _preApplyRagDefaults(child, rawRag);
+        }
+    }
+}
+
+function _preApplyLlmDefaults(agent: Record<string, unknown>, rawLlm: Record<string, unknown>): void {
+    if (!agent.llm || typeof agent.llm !== "object") {
+        agent.llm = { ...rawLlm };
+    }
+
+    const children = agent.children as Record<string, Record<string, unknown>> | undefined;
+    if (children) {
+        for (const child of Object.values(children)) {
+            _preApplyLlmDefaults(child, rawLlm);
+        }
+    }
+}
+
 // ── Build config with defaults applied ──────────────────────────
 
 export function buildAgentsConfig(rawData: Record<string, unknown>): OrchidAgentsConfig {
-    // Parse with the base schema first
+    preApplyRawDefaults(rawData);
+
     const parsed = OrchidAgentsConfigSchema.parse(rawData) as Record<string, unknown>;
     const config: OrchidAgentsConfig = parsed as unknown as OrchidAgentsConfig;
 

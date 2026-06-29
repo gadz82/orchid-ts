@@ -68,7 +68,9 @@ export function extractUserQuery(state: OrchidAgentState): string {
     const messages = state.messages ?? [];
     for (let i = messages.length - 1; i >= 0; i--) {
         const msg = messages[i] as Record<string, unknown>;
-        if (msg["type"] === "human") {
+        const rawType = String(msg["type"] ?? "");
+        const rawRole = String(msg["role"] ?? "");
+        if (rawType === "human" || rawRole === "user" || rawRole === "human") {
             return String(msg["content"] ?? "");
         }
     }
@@ -97,18 +99,24 @@ export function extractConversationHistory(
     // Walk from the end, skip the last human message (current query)
     for (let i = messages.length - 1; i >= 0; i--) {
         const msg = messages[i] as Record<string, unknown>;
-        const msgType = String(msg["type"] ?? "");
+        // Graph-produced messages use `role`, API-loaded messages use `type`.
+        // Normalise: role "user" / "human" → human, role "ai" / "assistant" → ai.
+        const rawType = String(msg["type"] ?? "");
+        const rawRole = String(msg["role"] ?? "");
+        const isHuman = rawType === "human" || rawRole === "user" || rawRole === "human";
+        const isAi = rawType === "ai" || rawRole === "ai" || rawRole === "assistant";
+        const isTool = rawType === "tool" || rawRole === "tool";
 
         // Skip the last user message (current query)
-        if (!foundLastUser && msgType === "human") {
+        if (!foundLastUser && isHuman) {
             foundLastUser = true;
             continue;
         }
 
         // Skip tool messages
-        if (msgType === "tool") continue;
+        if (isTool) continue;
 
-        if (msgType === "ai") {
+        if (isAi) {
             let content = String(msg["content"] ?? "");
             // Skip supervisor routing messages
             if (skipPrefixes.some((pfx) => content.startsWith(pfx))) continue;
@@ -130,7 +138,7 @@ export function extractConversationHistory(
             }
             const name = String(msg["name"] ?? "");
             result.unshift({ role: "ai", content, name: name || undefined });
-        } else if (msgType === "human") {
+        } else if (isHuman) {
             let content = String(msg["content"] ?? "");
             if (maxChars && content.length > maxChars) {
                 content = truncateContent(

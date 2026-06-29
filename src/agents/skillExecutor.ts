@@ -137,10 +137,9 @@ export class SkillExecutor {
         const tool = getTool(toolName);
         const params = filterToSchema(stepArguments, tool.getParametersSchema());
 
-        console.debug(
-            `[${this.agentName}] Builtin step '${toolName}': schema params=%o, provided=%o`,
-            Object.keys(tool.getParametersSchema().properties ?? {}).sort(),
-            Object.keys(params).sort(),
+        console.info(
+            `[${this.agentName}] Builtin step '${toolName}': params=%o`,
+            params,
         );
 
         const toolInput: OrchidToolInput = {

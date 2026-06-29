@@ -47,8 +47,36 @@ export class Orchid {
         const { loadConfig } = await import("../config/loader.js");
         const config = await loadConfig(configPath);
 
+        const { dirname, resolve: resolvePath } = await import("node:path");
+        const configDir = dirname(
+            configPath.startsWith("/") || /^[A-Z]:/.test(configPath)
+                ? configPath
+                : resolvePath(process.cwd(), configPath),
+        );
+
+        // Resolve checkpointer type / dsn from overrides (Python parity:
+        // `_build_runtime` -> `_attach_checkpointer`). Default is empty
+        // (no checkpointer) — without a checkpointer, the caller must
+        // inject prior conversation history into the initial state.
+        const cpType = overrides?.checkpointer?.checkpointerType ?? "";
+        const cpDsn = overrides?.checkpointer?.checkpointerDsn ?? "";
+
+        let checkpointer: unknown = null;
+        if (cpType) {
+            try {
+                const { buildCheckpointer } = await import("../checkpointing/factory.js");
+                checkpointer = await buildCheckpointer(cpType, cpDsn || undefined);
+                console.info("[Orchid] checkpointer=%s ready", cpType);
+            } catch (exc: unknown) {
+                const err = exc instanceof Error ? exc : new Error(String(exc));
+                console.warn("[Orchid] checkpointer build failed: %s", err.message);
+            }
+        }
+
         const runtime = new OrchidRuntime({
             defaultModel: overrides?.model ?? "ollama/llama3.2",
+            configDir,
+            checkpointer,
         });
 
         let graph: any = null;

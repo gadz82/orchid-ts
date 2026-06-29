@@ -168,6 +168,59 @@ describe("createSupervisorNode", () => {
         expect(result.finalResponse).toBeDefined();
     });
 
+    it("parses markdown-bold field names from Ollama models", async () => {
+        const chatModelWithOutput = {
+            invoke: vi.fn().mockResolvedValue({
+                content:
+                    "**execution**: parallel\n**agents**: [menu, orders]\n**reasoning**: user wants menu and ordering\n**directResponse**: null",
+            }),
+        };
+
+        const node = createSupervisorNode({
+            model: "test",
+            agentDescriptions,
+            chatModel: chatModelWithOutput as any,
+        });
+
+        const st = state({
+            messages: [{ type: "human", content: "Show me the menu and I want to order" }],
+        });
+
+        const result = await node(st, {
+            configurable: { auth_context: new OrchidAuthContext({ accessToken: "" }) },
+        });
+
+        expect(result.activeAgents).toEqual(["menu", "orders"]);
+        expect(result.executionMode).toBe("parallel");
+        expect(result.finalResponse).toBeNull();
+    });
+
+    it("treats directResponse 'null' string as null", async () => {
+        const chatModelWithOutput = {
+            invoke: vi.fn().mockResolvedValue({
+                content:
+                    "**reasoning**: general greeting\n**execution**: parallel\n**agents**: []\n**directResponse**: Hello!",
+            }),
+        };
+
+        const node = createSupervisorNode({
+            model: "test",
+            agentDescriptions,
+            chatModel: chatModelWithOutput as any,
+        });
+
+        const st = state({
+            messages: [{ type: "human", content: "Hi there" }],
+        });
+
+        const result = await node(st, {
+            configurable: { auth_context: new OrchidAuthContext({ accessToken: "" }) },
+        });
+
+        expect(result.finalResponse).toBe("Hello!");
+        expect(result.activeAgents).toEqual([]);
+    });
+
     it("triggers synthesis when agents have produced output and none pending", async () => {
         const chatModelWithOutput = {
             invoke: vi.fn().mockResolvedValue({ content: "synthesis" }),

@@ -1,35 +1,66 @@
 /**
- * Checkpointer factory — builds a LangGraph-compatible checkpointer
- * from a type hint (memory / sqlite / dotted path) and an optional DSN.
+ * Minimal MemorySaver that satisfies LangGraph JS's checkpointing
+ * contract. Implements:
+ *   getTuple(config) → checkpoint-tuple | undefined
+ *   put(config, checkpoint, metadata, newVersions) → config
+ *
+ * Kept inline so the package works even when @langchain/langgraph is
+ * not installed.
  */
-
-// ── Inline MemorySaver ──────────────────────────────────────────────
-// Kept inline so the package works even when @langchain/langgraph is
-// not installed.  Implements the minimal checkpointing contract:
-//   get(config) → checkpoint | undefined
-//   put(config, checkpoint, metadata, newVersions) → void
-
 class MemorySaver {
     private storage: Map<string, unknown> = new Map();
 
-    async get(config: Record<string, unknown>): Promise<unknown> {
+    async getTuple(config: Record<string, unknown>): Promise<{ checkpoint: unknown; metadata: unknown; parentConfig?: unknown; config?: Record<string, unknown> } | undefined> {
         const threadId = (config?.configurable as Record<string, unknown> | undefined)
             ?.thread_id as string | undefined;
         if (!threadId) return undefined;
-        return this.storage.get(threadId);
+        const entry = this.storage.get(threadId) as Record<string, unknown> | undefined;
+        if (!entry) return undefined;
+        return { ...entry, config } as { checkpoint: unknown; metadata: unknown; config?: Record<string, unknown> };
     }
 
     async put(
         config: Record<string, unknown>,
         checkpoint: unknown,
-        _metadata?: unknown,
+        metadata: unknown,
         _newVersions?: unknown,
     ): Promise<Record<string, unknown>> {
         const threadId = (config?.configurable as Record<string, unknown> | undefined)
             ?.thread_id as string | undefined;
         if (!threadId) return {};
-        this.storage.set(threadId, checkpoint);
+        this.storage.set(threadId, { checkpoint, metadata, parentConfig: config });
         return {};
+    }
+
+    async putWrites(
+        config: Record<string, unknown>,
+        writes: unknown[],
+        taskId: string,
+    ): Promise<void> {
+        const threadId = (config?.configurable as Record<string, unknown> | undefined)
+            ?.thread_id as string | undefined;
+        if (!threadId) return;
+        const key = `${threadId}:writes:${taskId}`;
+        this.storage.set(key, { writes, config });
+    }
+
+    async list(
+        config: Record<string, unknown>,
+        _options?: { limit?: number; before?: Record<string, unknown> },
+    ): Promise<Array<unknown>> {
+        const threadId = (config?.configurable as Record<string, unknown> | undefined)
+            ?.thread_id as string | undefined;
+        if (!threadId) return [];
+        const entry = this.storage.get(threadId);
+        if (!entry) return [];
+        return [entry];
+    }
+
+    // Backward-compat alias — LangGraph may call `get` (deprecated)
+    // instead of `getTuple`. Returns just the checkpoint value.
+    async get(config: Record<string, unknown>): Promise<unknown> {
+        const tuple = await this.getTuple(config);
+        return tuple ? (tuple as Record<string, unknown>).checkpoint : undefined;
     }
 }
 

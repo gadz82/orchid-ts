@@ -151,6 +151,62 @@ describe("Config Schema - Agent & AgentsConfig", () => {
         expect(config.agents.testAgent.rag.k).toBe(5);
     });
 
+    it("propagates defaults.rag.enabled: false to agents", () => {
+        const config = buildAgentsConfig({
+            defaults: {
+                rag: { enabled: false },
+            },
+            agents: {
+                foo: {
+                    description: "Foo agent",
+                    prompt: "Foo",
+                },
+                bar: {
+                    description: "Bar agent",
+                    prompt: "Bar",
+                    rag: { enabled: true },
+                },
+            },
+        });
+
+        // foo didn't explicitly set rag — should inherit false from defaults
+        expect(config.agents.foo.rag.enabled).toBe(false);
+
+        // bar explicitly set rag.enabled: true — should keep its value
+        expect(config.agents.bar.rag.enabled).toBe(true);
+    });
+
+    it("propagates defaults.rag.enabled: false to nested children", () => {
+        const config = buildAgentsConfig({
+            defaults: {
+                rag: { enabled: false },
+            },
+            agents: {
+                parent: {
+                    description: "Parent",
+                    prompt: "Parent prompt",
+                    children: {
+                        child1: {
+                            description: "Child 1",
+                            prompt: "Child 1 prompt",
+                        },
+                        child2: {
+                            description: "Child 2",
+                            prompt: "Child 2 prompt",
+                            rag: { enabled: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        const children = config.agents.parent.children!;
+        // child1 didn't set rag — inherits false from defaults
+        expect(children.child1.rag.enabled).toBe(false);
+        // child2 explicitly set rag.enabled: true — keeps its value
+        expect(children.child2.rag.enabled).toBe(true);
+    });
+
     it("parses defaults config", () => {
         const result = OrchidDefaultsConfigSchema.parse({});
         expect(result.llm.model).toBe("gemini/gemini-2.5-flash");

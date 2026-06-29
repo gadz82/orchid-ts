@@ -10,7 +10,8 @@ export function filterInternalMessages(
     const filtered: Array<Record<string, unknown>> = [];
     for (const msg of messages) {
         const msgType = typeof msg["type"] === "string" ? msg["type"] : "";
-        if (msgType === "ai") {
+        const msgRole = typeof msg["role"] === "string" ? msg["role"] : "";
+        if (msgType === "ai" || msgRole === "ai" || msgRole === "assistant") {
             const content = String(msg["content"] ?? "");
             if (skipPrefixes.some((pfx) => content.startsWith(pfx))) {
                 continue;
@@ -25,10 +26,20 @@ export function extractSingleAgentResponse(state: GraphState): string | null {
     const messages = (state.messages ?? []) as Array<Record<string, unknown>>;
     if (messages.length === 0) return null;
 
+    const isHuman = (m: Record<string, unknown>): boolean => {
+        const t = typeof m["type"] === "string" ? m["type"] : "";
+        const r = typeof m["role"] === "string" ? m["role"] : "";
+        return t === "human" || r === "user" || r === "human";
+    };
+    const isAi = (m: Record<string, unknown>): boolean => {
+        const t = typeof m["type"] === "string" ? m["type"] : "";
+        const r = typeof m["role"] === "string" ? m["role"] : "";
+        return t === "ai" || r === "ai" || r === "assistant";
+    };
+
     let lastUserIdx = -1;
     for (let i = 0; i < messages.length; i++) {
-        const msgType = typeof messages[i]["type"] === "string" ? messages[i]["type"] : "";
-        if (msgType === "human") {
+        if (isHuman(messages[i])) {
             lastUserIdx = i;
         }
     }
@@ -38,8 +49,7 @@ export function extractSingleAgentResponse(state: GraphState): string | null {
 
     const agentOutputs: string[] = [];
     for (const msg of currentTurn) {
-        const msgType = typeof msg["type"] === "string" ? msg["type"] : "";
-        if (msgType !== "ai") continue;
+        if (!isAi(msg)) continue;
         const content = String(msg["content"] ?? "");
         if (!content) continue;
         if (content.startsWith("[Supervisor")) continue;
@@ -64,9 +74,10 @@ export function toLlmMessages(
     const llmMsgs: Array<Record<string, unknown>> = [{ role: "system", content: system }];
     for (const msg of stateMessages) {
         const msgType = typeof msg["type"] === "string" ? msg["type"] : "";
-        if (msgType === "human") {
+        const msgRole = typeof msg["role"] === "string" ? msg["role"] : "";
+        if (msgType === "human" || msgRole === "user" || msgRole === "human") {
             llmMsgs.push({ role: "user", content: String(msg["content"] ?? "") });
-        } else if (msgType === "ai") {
+        } else if (msgType === "ai" || msgRole === "ai" || msgRole === "assistant") {
             llmMsgs.push({ role: "assistant", content: String(msg["content"] ?? "") });
         }
     }
