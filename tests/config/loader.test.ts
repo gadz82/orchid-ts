@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe("Config Loader", () => {
-    it("loads a minimal agents.yaml", () => {
+    it("loads a minimal agents.yaml", async () => {
         const yaml = `
 agents:
   test:
@@ -28,14 +28,14 @@ agents:
         const path = join(tmpDir, "agents.yaml");
         writeFileSync(path, yaml);
 
-        const config = loadConfig(path);
+        const config = await loadConfig(path);
         expect(config.agents.test.name).toBe("test");
         expect(config.agents.test.description).toBe("A test agent");
         expect(config.agents.test.prompt).toBe("Be helpful");
         expect(config.version).toBe("1");
     });
 
-    it("loads agents.yaml with supervisor config", () => {
+    it("loads agents.yaml with supervisor config", async () => {
         const yaml = `
 supervisor:
   assistantName: Orchid
@@ -48,16 +48,16 @@ agents:
         const path = join(tmpDir, "agents.yaml");
         writeFileSync(path, yaml);
 
-        const config = loadConfig(path);
+        const config = await loadConfig(path);
         expect(config.supervisor.assistantName).toBe("Orchid");
         expect(config.supervisor.historyMaxTurns).toBe(30);
     });
 
-    it("throws ConfigLoadError for missing file", () => {
-        expect(() => loadConfig("/nonexistent/agents.yaml")).toThrow(ConfigLoadError);
+    it("throws ConfigLoadError for missing file", async () => {
+        await expect(loadConfig("/nonexistent/agents.yaml")).rejects.toThrow(ConfigLoadError);
     });
 
-    it("throws ConfigValidationError for invalid config", () => {
+    it("throws ConfigValidationError for invalid config", async () => {
         const yaml = `
 agents:
   test:
@@ -67,10 +67,10 @@ agents:
         const path = join(tmpDir, "agents.yaml");
         writeFileSync(path, yaml);
 
-        expect(() => loadConfig(path)).toThrow(ConfigValidationError);
+        await expect(loadConfig(path)).rejects.toThrow(ConfigValidationError);
     });
 
-    it("interpolates environment variables", () => {
+    it("interpolates environment variables", async () => {
         process.env.TEST_API_KEY = "secret-123";
         process.env.TEST_MODEL = "gemini/flash";
 
@@ -84,7 +84,7 @@ agents:
         writeFileSync(path, yaml);
 
         try {
-            const config = loadConfig(path);
+            const config = await loadConfig(path);
             expect(config.agents.worker.description).toContain("secret-123");
             expect(config.agents.worker.prompt).toContain("gemini/flash");
         } finally {
@@ -93,7 +93,7 @@ agents:
         }
     });
 
-    it("throws when env variable is missing", () => {
+    it("throws when env variable is missing", async () => {
         const yaml = `
 agents:
   worker:
@@ -103,10 +103,10 @@ agents:
         const path = join(tmpDir, "agents.yaml");
         writeFileSync(path, yaml);
 
-        expect(() => loadConfig(path)).toThrow("MISSING_VAR");
+        await expect(loadConfig(path)).rejects.toThrow("MISSING_VAR");
     });
 
-    it("loads config with defaults", () => {
+    it("loads config with defaults", async () => {
         const yaml = `
 defaults:
   llm:
@@ -120,7 +120,7 @@ agents:
         const path = join(tmpDir, "agents.yaml");
         writeFileSync(path, yaml);
 
-        const config = loadConfig(path);
+        const config = await loadConfig(path);
         // After buildAgentsConfig applies defaults, the agent inherits the LLM
         expect(config.agents.chat.name).toBe("chat");
     });
