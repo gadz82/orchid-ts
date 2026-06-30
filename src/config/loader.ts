@@ -33,7 +33,7 @@ function findCommentStart(line: string): number | null {
  * Arrays are walked (objects inside arrays are converted), primitives
  * are left untouched.
  */
-function snakeToCamel(value: unknown): unknown {
+export function snakeToCamel(value: unknown): unknown {
     if (Array.isArray(value)) {
         return value.map(snakeToCamel);
     }
@@ -83,7 +83,12 @@ function interpolateEnv(raw: string): string {
     return lines.join("\n");
 }
 
-export function loadConfig(path: string): OrchidAgentsConfig {
+export async function loadConfig(path: string): Promise<OrchidAgentsConfig> {
+    if (path.toLowerCase().endsWith(".md")) {
+        const { loadMdConfig } = await import("./mdLoader.js");
+        return loadMdConfig(path).config as OrchidAgentsConfig;
+    }
+
     let resolvedPath = path;
     if (!resolvedPath.startsWith("/") && !/^[A-Z]:/.test(resolvedPath)) {
         // Try relative to this module's parent directory (orchid-ts root)
@@ -156,10 +161,12 @@ export function loadConfig(path: string): OrchidAgentsConfig {
         const envConfigPath = process.env["AGENTS_CONFIG_PATH"] || null;
         const agentsConfigPath = inlineConfigPath ?? envConfigPath;
         if (agentsConfigPath) {
+            const inlineAgentsWithoutConfigPath = { ...agentsRecord };
+            delete inlineAgentsWithoutConfigPath["configPath"];
             dataObj["agents"] = loadAndMergeAgentsConfig(
                 agentsConfigPath,
                 resolvedPath,
-                agentsRecord,
+                inlineAgentsWithoutConfigPath,
             );
         }
     }
@@ -235,28 +242,56 @@ function resolveAgentsConfigPath(agentsConfigPath: string, mainConfigPath: strin
     return resolve(mainDir, agentsConfigPath);
 }
 
+const RAG_BEHAVIOUR_KEYS = new Set([
+    "k",
+    "enabled",
+    "ragTtl",
+    "maxContextChars",
+    "ingestion",
+    "retrieval",
+]);
+
 /**
- * Merge the Python-port top-level sections (`llm`, `rag`, `auth`,
- * `storage`, `tracing`) into the TS port's `defaults.*` slots. Existing
- * `defaults.*` fields take precedence so the TS examples that already
- * use the flat/structurally-different keys keep working.
+ * Merge the Python-port top-level sections (`llm`, `rag`) into the TS port's
+ * `defaults.*` slots. Existing `defaults.*` fields take precedence so the TS
+ * examples that already use flat/structurally-different keys keep working.
+ *
+ * Only behaviour keys are pulled from `rag:` — infrastructure keys such as
+ * `vectorBackend`, `qdrantUrl`, `embeddingModel`, etc. are consumed via
+ * `applyYamlToEnv` in the API/CLI layer, not via `defaults.rag`.
  */
-function mergeTopLevelIntoDefaults(data: Record<string, unknown>): void {
+export function mergeTopLevelIntoDefaults(data: Record<string, unknown>): void {
     const defaults = (data["defaults"] ?? {}) as Record<string, unknown>;
-    const sections: Array<[string, string]> = [
-        ["llm", "llm"],
-        ["rag", "rag"],
-    ];
-    for (const [topKey, defaultKey] of sections) {
-        const topSection = data[topKey];
-        if (topSection === null || typeof topSection !== "object" || Array.isArray(topSection)) {
-            continue;
+
+    const llmSection = data["llm"];
+    if (
+        llmSection !== null &&
+        typeof llmSection === "object" &&
+        !Array.isArray(llmSection)
+    ) {
+        const defaultLlm = (defaults["llm"] ?? {}) as Record<string, unknown>;
+        if (typeof defaultLlm === "object" && defaultLlm !== null && !Array.isArray(defaultLlm)) {
+            defaults["llm"] = { ...llmSection, ...defaultLlm };
         }
-        const defaultSection = (defaults[defaultKey] ?? {}) as Record<string, unknown>;
-        if (typeof defaultSection !== "object" || defaultSection === null || Array.isArray(defaultSection)) {
-            continue;
-        }
-        defaults[defaultKey] = { ...topSection, ...defaultSection };
     }
+
+    const ragSection = data["rag"];
+    if (
+        ragSection !== null &&
+        typeof ragSection === "object" &&
+        !Array.isArray(ragSection)
+    ) {
+        const defaultRag = (defaults["rag"] ?? {}) as Record<string, unknown>;
+        if (typeof defaultRag === "object" && defaultRag !== null && !Array.isArray(defaultRag)) {
+            const behaviourOnly: Record<string, unknown> = {};
+            for (const [key, value] of Object.entries(ragSection as Record<string, unknown>)) {
+                if (RAG_BEHAVIOUR_KEYS.has(key)) {
+                    behaviourOnly[key] = value;
+                }
+            }
+            defaults["rag"] = { ...behaviourOnly, ...defaultRag };
+        }
+    }
+
     data["defaults"] = defaults;
 }

@@ -23,8 +23,8 @@ export abstract class OrchidConfigWatcherBase {
     }
 
     abstract currentHashes(): Record<string, string>;
-    abstract reload(): OrchidConfigSnapshot;
-    abstract reloadSingleAgent(name: string): OrchidConfigSnapshot | null;
+    abstract reload(): Promise<OrchidConfigSnapshot>;
+    abstract reloadSingleAgent(name: string): Promise<OrchidConfigSnapshot | null>;
 
     hasChanges(): boolean {
         const current = this.currentHashes();
@@ -55,7 +55,7 @@ export abstract class OrchidConfigWatcherBase {
         return changed;
     }
 
-    reloadIfChanged(): OrchidConfigSnapshot | null {
+    async reloadIfChanged(): Promise<OrchidConfigSnapshot | null> {
         if (!this.hasChanges()) return null;
         return this.reload();
     }
@@ -90,8 +90,8 @@ export class OrchidYamlConfigWatcher extends OrchidConfigWatcherBase {
         return hashes;
     }
 
-    reload(): OrchidConfigSnapshot {
-        const config = loadYamlConfig(this.agentsYamlPath);
+    async reload(): Promise<OrchidConfigSnapshot> {
+        const config = await loadYamlConfig(this.agentsYamlPath);
 
         const newHashes: Record<string, string> = {};
         if (existsSync(this.orchidYmlPath)) {
@@ -105,7 +105,7 @@ export class OrchidYamlConfigWatcher extends OrchidConfigWatcherBase {
         return this.snapshot;
     }
 
-    reloadSingleAgent(_name: string): OrchidConfigSnapshot | null {
+    async reloadSingleAgent(_name: string): Promise<OrchidConfigSnapshot | null> {
         // YAML is a single file — just reload everything
         if (!existsSync(this.agentsYamlPath)) return null;
 
@@ -113,7 +113,7 @@ export class OrchidYamlConfigWatcher extends OrchidConfigWatcherBase {
         const oldHash = this.snapshot.fileHashes[this.agentsYamlPath];
         if (oldHash === newHash) return null;
 
-        const newConfig = loadYamlConfig(this.agentsYamlPath);
+        const newConfig = await loadYamlConfig(this.agentsYamlPath);
         const agents = (newConfig as unknown as Record<string, unknown>).agents as Record<
             string,
             unknown
