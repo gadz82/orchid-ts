@@ -549,12 +549,13 @@ async function routePhase(
         };
     }
 
-    // Validate agent names
-    let valid = agents.filter((a) => a in agentDescriptions);
+    // Validate agent names and dedupe — small local models sometimes repeat
+    // the same agent name (e.g. ["basketball", "basketball"]).
+    let valid = [...new Set(agents.filter((a) => a in agentDescriptions))];
 
     // Recovery: if the LLM returned empty agents but mentioned agent names in reasoning
     if (valid.length === 0 && !direct) {
-        valid = recoverAgentNames(decision.reasoning, agentDescriptions);
+        valid = [...new Set(recoverAgentNames(decision.reasoning, agentDescriptions))];
     }
 
     if (valid.length === 0) {
