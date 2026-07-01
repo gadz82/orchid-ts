@@ -59,8 +59,10 @@ async function buildFallbackEmbeddings(
 ): Promise<EmbeddingsLike> {
     if (!model.includes("/")) {
         try {
-            // Dynamic import — @langchain/openai is an optional peer dependency
-            const mod = (await import("@langchain/openai")) as any;
+            // Dynamic import — @langchain/openai is an optional peer dependency.
+            // Use a variable so TypeScript doesn't resolve the module at compile time.
+            const pkg = "@langchain/openai";
+            const mod = (await import(pkg)) as any;
             const { OpenAIEmbeddings } = mod;
             const apiKey = process.env["OPENAI_API_KEY"] ?? "";
             const instance = new OpenAIEmbeddings({

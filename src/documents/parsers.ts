@@ -168,7 +168,8 @@ export class ImageParser extends DocumentParser {
         const b64 = fileBytes.toString("base64");
 
         try {
-            const { ChatOpenAI } = await import("@langchain/openai");
+            const pkg = "@langchain/openai";
+            const { ChatOpenAI } = await import(/* webpackIgnore: true */ pkg);
             const { HumanMessage } = await import("@langchain/core/messages");
 
             const model = new ChatOpenAI({

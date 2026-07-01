@@ -76,8 +76,10 @@ function stripPrefix(model: string, prefix: string): string {
 async function buildFallback(model: string, temperature: number): Promise<ChatModelLike> {
     if (!model.includes("/")) {
         try {
-            // @ts-expect-error - optional peer dep
-            const mod = (await import("@langchain/openai")) as Record<string, ChatModelConstructor>;
+            // Dynamic import — @langchain/openai is an optional peer dependency.
+            // Use a variable so TypeScript doesn't resolve the module at compile time.
+            const pkg = "@langchain/openai";
+            const mod = (await import(pkg)) as Record<string, ChatModelConstructor>;
             const { ChatOpenAI } = mod;
             if (!ChatOpenAI) throw new Error("ChatOpenAI not available");
             const apiKey = process.env["OPENAI_API_KEY"] ?? "";
