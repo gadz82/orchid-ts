@@ -1,3 +1,16 @@
+## [1.0.2](https://github.com/gadz82/orchid-ts/compare/v1.0.1...v1.0.2) (2026-07-01)
+
+
+### Bug Fixes
+
+* build and graph access fixes, package-lock.json regeneration. ([7ae300b](https://github.com/gadz82/orchid-ts/commit/7ae300be24b40bea21e9ec1388bbacaf1fe3142a))
+* bunch of cross-projects related fixes applied manually, damn AI sometime sucks ([76f4579](https://github.com/gadz82/orchid-ts/commit/76f45797085d5b83182ed3324c8c3e6593303501))
+* debugging and fixing wave ([17dac70](https://github.com/gadz82/orchid-ts/commit/17dac70ab17822cdb0686598de2311185b70643e))
+* debugging and fixing wave ([e026601](https://github.com/gadz82/orchid-ts/commit/e0266016aade9d20c700e0ca71ccbe5ddef7c0a1))
+* remove unused tools and update configurations for consistency ([cdf2677](https://github.com/gadz82/orchid-ts/commit/cdf2677f5b99ad01de45369921b253f35e873c38))
+* remove unused tools and update configurations for consistency ([5cd29b1](https://github.com/gadz82/orchid-ts/commit/5cd29b1d1b1f1734aa1b9e714d8b8f96863c85a5))
+* remove unused tools and update configurations for consistency ([4f288fe](https://github.com/gadz82/orchid-ts/commit/4f288fef3286a4e673ebb8f4e427a4902aa08332))
+
 ## [1.0.1](https://github.com/gadz82/orchid-ts/compare/v1.0.0...v1.0.1) (2026-06-16)
 
 
