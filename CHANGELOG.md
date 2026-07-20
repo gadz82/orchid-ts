@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/gadz82/orchid-ts/compare/v1.0.2...v1.1.0) (2026-07-20)
+
+
+### Features
+
+* add centralized content source handling and logging improvements ([0395e52](https://github.com/gadz82/orchid-ts/commit/0395e5264a21a7c7c5f2549abb5ae3939f4fbc9a))
+
 ## [1.0.2](https://github.com/gadz82/orchid-ts/compare/v1.0.1...v1.0.2) (2026-07-01)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@orchid-ai/orchid",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Generic, platform-agnostic multi-agent AI framework — TypeScript port of orchid-ai",
   "license": "MIT",
   "repository": {
