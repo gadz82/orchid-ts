@@ -1,4 +1,4 @@
-import { OrchidConfigStorage } from "./storage.js";
+import type { OrchidConfigStorage } from "./storage.js";
 
 export async function buildConfigStorage(
     classPath: string,
@@ -13,9 +13,14 @@ export async function buildConfigStorage(
 
     const instance = new Cls(dsn);
 
-    if (!(instance instanceof OrchidConfigStorage)) {
-        throw new Error(`Class '${classPath}' is not a subclass of OrchidConfigStorage`);
+    // Check if it has the required methods (duck typing)
+    if (
+        typeof instance.initDb !== "function" ||
+        typeof instance.close !== "function" ||
+        typeof instance.listConfigs !== "function"
+    ) {
+        throw new Error(`Class '${classPath}' does not implement OrchidConfigStorage interface`);
     }
 
-    return instance;
+    return instance as OrchidConfigStorage;
 }

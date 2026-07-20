@@ -5,6 +5,8 @@ export * from "./mdLoader.js";
 export * from "./registry.js";
 export * from "./storage.js";
 export * from "./storageFactory.js";
+export * from "./configStorageSqlite.js";
+export { buildConfigStorageFromConfig } from "./configStorageFactory.js";
 export * from "./toolRegistry.js";
 export * from "./watcher.js";
 export * from "./yamlEnv.js";

@@ -239,7 +239,7 @@ function loadAndMergeAgentsConfig(
     
     // Merge top-level sections from agents.yaml (tools, skills, supervisor, guardrails, etc.)
     // into the main config. The agents section is handled separately below.
-    const topLevelSections = ["tools", "skills", "supervisor", "guardrails", "mcpGateway", "events"];
+    const topLevelSections = ["tools", "skills", "supervisor", "guardrails", "mcpGateway", "events", "configStorage", "startupHooks"];
     for (const section of topLevelSections) {
         if (agentsData[section] && typeof agentsData[section] === "object") {
             // File-level section takes priority
