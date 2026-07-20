@@ -45,7 +45,7 @@ export class Orchid {
         overrides?: Partial<OrchidFactoryOverrides>,
     ): Promise<Orchid> {
         const { loadConfig } = await import("../config/loader.js");
-        const config = await loadConfig(configPath);
+        let config = await loadConfig(configPath);
 
         const { dirname, resolve: resolvePath } = await import("node:path");
         const configDir = dirname(
@@ -85,12 +85,40 @@ export class Orchid {
             }
         }
 
+        // Build config storage if enabled
+        let configStorage: any = null;
+        try {
+            const { buildConfigStorageFromConfig } = await import("../config/configStorageFactory.js");
+            configStorage = buildConfigStorageFromConfig(config.configStorage);
+            if (configStorage) {
+                await configStorage.initDb();
+                console.info("[Orchid] config storage initialised");
+            }
+        } catch (err) {
+            console.warn("[Orchid] Failed to build config storage: %s", err);
+        }
+
         const runtime = new OrchidRuntime({
             defaultModel: overrides?.model ?? "ollama/llama3.2",
             configDir,
             checkpointer,
             contentSources,
         });
+
+        // Run startup hooks if configured
+        if (config.startupHooks && Array.isArray(config.startupHooks)) {
+            await this._runStartupHooks(config.startupHooks, {
+                config,
+                runtime,
+                configStorage,
+                configDir,
+            });
+        }
+
+        // Merge configs from DB into the graph config
+        if (configStorage) {
+            config = await this._mergeFromDb(config, configStorage);
+        }
 
         let graph: any = null;
         try {
@@ -103,7 +131,14 @@ export class Orchid {
             if (err.stack) console.error(err.stack);
         }
 
-        return new Orchid({ runtime, graph });
+        const orchid = new Orchid({ runtime, graph });
+        (orchid as any)._configStorage = configStorage;
+        // Expose configStorage as a public property for startup hooks
+        Object.defineProperty(orchid, "configStorage", {
+            get: () => configStorage,
+            enumerable: true,
+        });
+        return orchid;
     }
 
     static async fromConfig(
@@ -191,6 +226,67 @@ export class Orchid {
 
     private ensureOpen(): void {
         if (this.closed) throw new Error("Orchid instance has been closed");
+    }
+
+    private static async _runStartupHooks(
+        hooks: string[],
+        context: {
+            config: any;
+            runtime: any;
+            configStorage: any;
+            configDir: string;
+        },
+    ): Promise<void> {
+        const { resolve: resolvePath } = await import("node:path");
+
+        for (const hookPath of hooks) {
+            try {
+                const absolutePath = hookPath.startsWith(".")
+                    ? resolvePath(context.configDir, hookPath)
+                    : hookPath;
+                const hookModule = await import(absolutePath);
+                const hookFn = hookModule.default || hookModule.buildFleet || hookModule.startup;
+
+                if (typeof hookFn === "function") {
+                    console.info("[Orchid] Running startup hook: %s", hookPath);
+                    await hookFn({
+                        config: context.config,
+                        runtime: context.runtime,
+                        configStorage: context.configStorage,
+                        settings: {},
+                    });
+                } else {
+                    console.warn("[Orchid] Startup hook %s does not export a function", hookPath);
+                }
+            } catch (err) {
+                console.error("[Orchid] Startup hook %s failed: %s", hookPath, err);
+            }
+        }
+    }
+
+    private static async _mergeFromDb(config: any, configStorage: any): Promise<any> {
+        try {
+            const records = await configStorage.listConfigs();
+            if (!records || records.length === 0) {
+                return config;
+            }
+
+            console.info("[Orchid] Merging %d agent config(s) from database", records.length);
+
+            const agents = { ...(config.agents || {}) };
+            for (const record of records) {
+                const agentConfig = record.config;
+                if (agents[record.name]) {
+                    console.warn("[Orchid] Agent %s exists in both YAML and DB — DB version takes precedence", record.name);
+                }
+                agents[record.name] = agentConfig;
+            }
+
+            return { ...config, agents };
+        } catch (err) {
+            console.warn("[Orchid] Failed to merge configs from DB: %s", err);
+            return config;
+        }
     }
 }
 

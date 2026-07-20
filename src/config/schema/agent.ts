@@ -64,6 +64,7 @@ export const OrchidAgentsConfigSchema = z.object({
     allowedPassthroughHosts: z.array(z.string()).default([]),
     events: OrchidEventsConfigSchema.nullable().default(null),
     configStorage: OrchidConfigStorageConfigSchema.default({}),
+    startupHooks: z.array(z.string()).default([]),
 });
 
 export type OrchidAgentsConfig = z.infer<typeof OrchidAgentsConfigSchema>;
