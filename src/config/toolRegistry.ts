@@ -117,6 +117,12 @@ export async function callTool(
     return output.result;
 }
 
+const PYTHON_TO_TS_HANDLER_MAP: Record<string, string> = {
+    "orchid_ai.agents.content_tools.list_content_files": "@orchid-ai/orchid/agents#listContentFiles",
+    "orchid_ai.agents.content_tools.search_content_files": "@orchid-ai/orchid/agents#searchContentFiles",
+    "orchid_ai.agents.content_tools.read_content_file": "@orchid-ai/orchid/agents#readContentFile",
+};
+
 export async function loadToolsFromConfig(
     toolsConfig: Record<string, unknown>,
     configDir?: string,
@@ -164,47 +170,63 @@ async function _registerHandlerTool(
     cfg: Record<string, unknown>,
     configDir: string,
 ): Promise<void> {
-    const parts = handler.split("#");
+    const mappedHandler = PYTHON_TO_TS_HANDLER_MAP[handler] ?? handler;
+    if (mappedHandler !== handler) {
+        console.info("[toolRegistry] mapped Python handler '%s' -> '%s'", handler, mappedHandler);
+    }
+    const parts = mappedHandler.split("#");
     const modulePath = parts[0];
     const exportName = parts[1] ?? "default";
 
-    const { resolve } = await import("node:path");
-    const { pathToFileURL } = await import("node:url");
-    const { existsSync } = await import("node:fs");
-
-    let resolvedPath: string;
-    if (modulePath.startsWith(".")) {
-        resolvedPath = resolve(configDir, modulePath);
-    } else {
-        resolvedPath = modulePath;
-    }
-
-    // tsx resolves .js → .ts for top-level imports, but dynamic
-    // import() from compiled dist files may not get the same
-    // treatment. Try .ts if the .js file is missing.
     let mod: unknown;
-    const candidates = [resolvedPath];
-    if (resolvedPath.endsWith(".js")) {
-        candidates.push(resolvedPath.replace(/\.js$/, ".ts"));
-    } else if (resolvedPath.endsWith(".ts")) {
-        candidates.push(resolvedPath.replace(/\.ts$/, ".js"));
-    }
-
-    let lastErr: unknown;
-    for (const candidate of candidates) {
+    
+    // Handle @orchid-ai/orchid package imports
+    if (modulePath.startsWith("@orchid-ai/orchid")) {
         try {
-            if (!existsSync(candidate)) continue;
-            mod = await import(pathToFileURL(candidate).href);
-            break;
+            mod = await import(modulePath);
         } catch (err) {
-            lastErr = err;
+            throw new Error(
+                `Could not import handler '${handler}' (mapped to '${modulePath}'). Error: ${String(err)}`,
+            );
         }
-    }
+    } else {
+        const { resolve } = await import("node:path");
+        const { pathToFileURL } = await import("node:url");
+        const { existsSync } = await import("node:fs");
 
-    if (!mod) {
-        throw new Error(
-            `Could not import handler '${handler}'. Tried: ${candidates.join(", ")}. Last error: ${String(lastErr)}`,
-        );
+        let resolvedPath: string;
+        if (modulePath.startsWith(".")) {
+            resolvedPath = resolve(configDir, modulePath);
+        } else {
+            resolvedPath = modulePath;
+        }
+
+        // tsx resolves .js → .ts for top-level imports, but dynamic
+        // import() from compiled dist files may not get the same
+        // treatment. Try .ts if the .js file is missing.
+        const candidates = [resolvedPath];
+        if (resolvedPath.endsWith(".js")) {
+            candidates.push(resolvedPath.replace(/\.js$/, ".ts"));
+        } else if (resolvedPath.endsWith(".ts")) {
+            candidates.push(resolvedPath.replace(/\.ts$/, ".js"));
+        }
+
+        let lastErr: unknown;
+        for (const candidate of candidates) {
+            try {
+                if (!existsSync(candidate)) continue;
+                mod = await import(pathToFileURL(candidate).href);
+                break;
+            } catch (err) {
+                lastErr = err;
+            }
+        }
+
+        if (!mod) {
+            throw new Error(
+                `Could not import handler '${handler}'. Tried: ${candidates.join(", ")}. Last error: ${String(lastErr)}`,
+            );
+        }
     }
 
     const fn = (mod as Record<string, unknown>)[exportName] ?? mod;

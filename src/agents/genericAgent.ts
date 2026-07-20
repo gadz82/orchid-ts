@@ -37,12 +37,14 @@ export class GenericAgent extends OrchidAgent {
         chatModel?: ChatModelLike | null;
         summaryConfig?: Record<string, unknown> | null;
         graphStore?: OrchidGraphStore | null;
+        contentSources?: any[] | null;
     }) {
         super({
             reader: opts.reader,
             mcpClients: opts.mcpClients ?? undefined,
             chatModel: opts.chatModel ?? undefined,
             graphStore: opts.graphStore ?? undefined,
+            contentSources: (opts.contentSources as any) ?? undefined,
         });
         this.config = opts.config;
         this.agentPeers = opts.agentPeers ?? {};

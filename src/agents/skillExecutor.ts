@@ -5,6 +5,7 @@
  */
 
 import type { OrchidAuthContext } from "../core/index.js";
+import { extractTextContent } from "../core/helpers.js";
 import type { OrchidToolInput } from "../core/index.js";
 import type { OrchidAgentSkillStepConfig } from "../config/schema/index.js";
 import type { MCPDispatcher } from "./mcpDispatcher.js";
@@ -223,7 +224,7 @@ export class SkillExecutor {
 
             const mcpData = (resultState.mcpContext as Record<string, unknown>) ?? {};
             const messages = (resultState.messages as Array<Record<string, unknown>>) ?? [];
-            const responseText = messages.length > 0 ? String(messages[0].content ?? "") : "";
+            const responseText = messages.length > 0 ? extractTextContent(messages[0].content) : "";
 
             return {
                 agent: agentName,

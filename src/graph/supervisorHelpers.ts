@@ -1,4 +1,5 @@
 import type { ChatModelLike } from "../core/helpers.js";
+import { extractTextContent } from "../core/helpers.js";
 import type { GraphState } from "./state.js";
 
 const DEFAULT_SKIP_PREFIXES = ["[Supervisor"];
@@ -100,5 +101,5 @@ export async function llmComplete(
         kwargs["response_format"] = opts.responseFormat;
     }
     const result = await chatModel.invoke(messages, kwargs);
-    return result.content ?? "";
+    return extractTextContent(result.content);
 }

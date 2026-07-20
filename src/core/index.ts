@@ -9,7 +9,7 @@ export { OrchidAgent, getRunContext, runWithContext } from "./agent.js";
 export type { OrchidAgentRunContext } from "./agent.js";
 
 // Content
-export type { OrchidContentSource } from "./content.js";
+export type { OrchidContentSource, OrchidContentItem } from "./content.js";
 
 // Repository (vector store)
 export {
@@ -148,6 +148,7 @@ export {
     summarise,
     fetchRagContext,
     isChatModelLike,
+    extractTextContent,
 } from "./helpers.js";
 export type { ChatModelLike, ConversationMessage, ExtractHistoryOptions } from "./helpers.js";
 

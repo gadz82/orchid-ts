@@ -104,6 +104,11 @@ export class BuiltinToolWrapper implements ToolWrapper {
         this.agentName = opts.agentName ?? "";
         this.requiresApproval = opts.requiresApproval ?? false;
         this.contentSources = opts.contentSources ?? null;
+        if (this.contentSources) {
+            console.info("[BuiltinToolWrapper] tool=%s agent=%s contentSources=%d", 
+                this.name, this.agentName, 
+                Array.isArray(this.contentSources) ? this.contentSources.length : 0);
+        }
     }
 
     async invoke(args: Record<string, unknown>): Promise<string> {

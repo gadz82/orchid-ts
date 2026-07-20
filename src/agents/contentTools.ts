@@ -15,7 +15,7 @@ export interface ContentSourceRuntime {
 function serialiseItem(item: Record<string, unknown>): Record<string, unknown> {
     return {
         path: (item["path"] as string) ?? "",
-        name: (item["name"] as string) ?? "",
+        name: (item["name"] as string) ?? (item["filename"] as string) ?? "",
         content_type: (item["content_type"] as string) ?? (item["contentType"] as string) ?? "",
         metadata: (item["metadata"] as Record<string, unknown>) ?? {},
         content: item["content"] ?? null,
@@ -30,7 +30,11 @@ export async function listContentFiles(opts: {
 }): Promise<Array<Record<string, unknown>>> {
     const { path = "", recursive = false, limit = 100, contentSources = null } = opts;
 
+    console.info("[listContentFiles] called with path='%s' contentSources=%s", 
+        path, contentSources ? contentSources.length : 0);
+
     if (!contentSources || contentSources.length === 0) {
+        console.warn("[listContentFiles] no content sources available");
         return [];
     }
 

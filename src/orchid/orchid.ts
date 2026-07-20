@@ -54,6 +54,18 @@ export class Orchid {
                 : resolvePath(process.cwd(), configPath),
         );
 
+        // Build content sources from CONTENT_SOURCES env var (set by applyYamlToEnv)
+        let contentSources: any[] | null = null;
+        try {
+            const { buildContentSourcesFromEnv } = await import("../content/index.js");
+            contentSources = buildContentSourcesFromEnv(configDir);
+            if (contentSources && contentSources.length > 0) {
+                console.info("[Orchid] built %d content source(s) from config", contentSources.length);
+            }
+        } catch (err) {
+            console.warn("[Orchid] Failed to build content sources: %s", err);
+        }
+
         // Resolve checkpointer type / dsn from overrides (Python parity:
         // `_build_runtime` -> `_attach_checkpointer`). Default is empty
         // (no checkpointer) — without a checkpointer, the caller must
@@ -77,6 +89,7 @@ export class Orchid {
             defaultModel: overrides?.model ?? "ollama/llama3.2",
             configDir,
             checkpointer,
+            contentSources,
         });
 
         let graph: any = null;

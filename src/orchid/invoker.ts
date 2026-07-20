@@ -1,5 +1,5 @@
 import type { OrchidAuthContext } from "../core/index.js";
-import { withAuth, GraphInterrupt } from "../core/index.js";
+import { withAuth, GraphInterrupt, extractTextContent } from "../core/index.js";
 
 export class OrchidPendingApproval {
     tool: string;
@@ -217,7 +217,7 @@ export class OrchidInvoker {
         for (let i = msgs.length - 1; i >= 0; i--) {
             const m = msgs[i];
             if (m.type === "ai" || m.role === "assistant") {
-                response = m.content ?? "";
+                response = extractTextContent(m.content);
                 break;
             }
         }
@@ -274,7 +274,7 @@ export class OrchidInvoker {
                 if (m.type === "ai" || m.role === "assistant") {
                     await this.chatRepo.addMessage(chatId, {
                         role: "assistant",
-                        content: m.content ?? "",
+                        content: extractTextContent(m.content),
                     });
                 }
             }

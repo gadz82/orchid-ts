@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 import type { ChatModelLike, OrchidAuthContext } from "../core/index.js";
+import { extractTextContent } from "../core/helpers.js";
 import type { OrchidAgentConfig } from "../config/schema/index.js";
 
 // ── Default decomposition prompt ─────────────────────────────────
@@ -187,7 +188,7 @@ export class MiniAgentDecomposer {
         } else {
             // No structured output support — raw invoke and JSON-parse
             const result = await this.chatModel.invoke([{ role: "system", content: rendered }]);
-            const jsonMatch = (result.content ?? "").match(/\{[\s\S]*\}/);
+            const jsonMatch = extractTextContent(result.content).match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 throw new MiniAgentDecompositionError("Decomposer did not return valid JSON");
             }

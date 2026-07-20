@@ -11,6 +11,7 @@
  *   single round — opt-in via ``parallelSafety`` map.
  */
 import type { ChatModelLike } from "../core/index.js";
+import { extractTextContent } from "../core/helpers.js";
 import type { ToolWrapper } from "./tools.js";
 import { GraphInterrupt } from "../core/graphInterrupt.js";
 
@@ -110,7 +111,7 @@ export class AgenticLoop {
             const toolCalls = aiMsg.tool_calls || [];
 
             if (toolCalls.length === 0) {
-                const finalText: string = aiMsg.content ?? "";
+                const finalText: string = extractTextContent(aiMsg.content);
                 const totalElapsed = performance.now() - loopStart;
                 console.info(
                     `[PERF][agent=${this.agentName}][loop] DONE rounds=${roundNum + 1} ` +
