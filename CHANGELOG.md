@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/gadz82/orchid-ts/compare/v1.1.0...v1.2.0) (2026-07-20)
+
+
+### Features
+
+* implement agent configuration storage with SQLite support ([924da15](https://github.com/gadz82/orchid-ts/commit/924da1589c8390498420d5713d00820dc0fcbf62))
+
 # [1.1.0](https://github.com/gadz82/orchid-ts/compare/v1.0.2...v1.1.0) (2026-07-20)
 
 
