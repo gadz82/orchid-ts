@@ -14,6 +14,7 @@
 import type { OrchidAuthContext } from "../core/state.js";
 import { OrchidMCPToolCaller, OrchidMCPDiscoverable } from "../core/mcpInterfaces.js";
 import type { ChatModelLike } from "../core/helpers.js";
+import { extractTextContent } from "../core/helpers.js";
 import type { OrchidToolConfig, OrchidMCPServerConfig } from "../config/schema/mcp.js";
 
 // ── Strategy Interface ──────────────────────────────────────────
@@ -216,7 +217,7 @@ export class LLMDecidesStrategy implements OrchidToolCallStrategy {
             options["response_format"] = opts.responseFormat;
         }
         const result = await chatModel.invoke(messages, options);
-        return result.content || "";
+        return extractTextContent(result.content);
     }
 }
 

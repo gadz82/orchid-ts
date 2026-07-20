@@ -134,6 +134,10 @@ export async function loadConfig(path: string): Promise<OrchidAgentsConfig> {
     }
 
     const dataObj = data as Record<string, unknown>;
+    console.info("[ConfigLoader] parsed config keys: %s", Object.keys(dataObj).join(", "));
+    if (dataObj.tools) {
+        console.info("[ConfigLoader] found tools section with %d tools", Object.keys(dataObj.tools as Record<string, unknown>).length);
+    }
 
     // Python-port compatibility: the Python `orchid.yml` puts LLM / RAG /
     // auth / storage / tracing under nested top-level keys (`llm:`,
@@ -167,6 +171,7 @@ export async function loadConfig(path: string): Promise<OrchidAgentsConfig> {
                 agentsConfigPath,
                 resolvedPath,
                 inlineAgentsWithoutConfigPath,
+                dataObj,
             );
         }
     }
@@ -196,6 +201,7 @@ function loadAndMergeAgentsConfig(
     agentsConfigPath: string,
     mainConfigPath: string,
     inlineAgents: Record<string, unknown>,
+    mainConfig: Record<string, unknown>,
 ): Record<string, unknown> {
     const resolved = resolveAgentsConfigPath(agentsConfigPath, mainConfigPath);
     let rawText: string;
@@ -230,6 +236,17 @@ function loadAndMergeAgentsConfig(
             agentsConfigPath,
         );
     }
+    
+    // Merge top-level sections from agents.yaml (tools, skills, supervisor, guardrails, etc.)
+    // into the main config. The agents section is handled separately below.
+    const topLevelSections = ["tools", "skills", "supervisor", "guardrails", "mcpGateway", "events"];
+    for (const section of topLevelSections) {
+        if (agentsData[section] && typeof agentsData[section] === "object") {
+            // File-level section takes priority
+            (mainConfig as any)[section] = agentsData[section];
+        }
+    }
+    
     // Merge: file agents take priority over inline agents when keys collide.
     return { ...(fileAgents as Record<string, unknown>), ...inlineAgents };
 }

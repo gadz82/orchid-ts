@@ -1,4 +1,5 @@
 import { OrchidGuardrail, OrchidGuardrailResult, OrchidGuardrailAction } from "../core/index.js";
+import { extractTextContent } from "../core/helpers.js";
 import type { OrchidGuardrailContext } from "../core/index.js";
 
 const GROUNDEDNESS_PROMPT = `You are a factuality evaluator. Assess whether the following response is factually grounded and does not contain hallucinated information.
@@ -43,7 +44,7 @@ export class GroundednessGuardrail extends OrchidGuardrail {
                 { role: "user", content },
             ]);
 
-            const verdict = (response.content ?? "").trim().toUpperCase();
+            const verdict = extractTextContent(response.content).trim().toUpperCase();
 
             if (verdict === "HALLUCINATED") {
                 return new OrchidGuardrailResult({

@@ -107,6 +107,12 @@ export class HandlerTool extends OrchidTool {
         if (toolInput.context) {
             normalised["context"] = toolInput.context;
         }
+        if (toolInput.contentSources) {
+            normalised["contentSources"] = toolInput.contentSources;
+        }
+        if (toolInput.authContext) {
+            normalised["authContext"] = toolInput.authContext;
+        }
         const rawResult = await this._fn(normalised);
         // Serialize objects so the LLM sees structured data (matching
         // Python's behaviour where tools return dicts).

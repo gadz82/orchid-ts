@@ -397,6 +397,7 @@ export async function buildGraph(opts: {
 
     // Register built-in tools from config
     if (config.tools && Object.keys(config.tools).length > 0) {
+        console.info("[Graph] found %d tools in config", Object.keys(config.tools).length);
         try {
             const { loadToolsFromConfig } = await import("../config/toolRegistry.js");
             await loadToolsFromConfig(
@@ -404,9 +405,11 @@ export async function buildGraph(opts: {
                 runtime.configDir,
             );
             console.info("[Graph] registered %d built-in tools", Object.keys(config.tools).length);
-        } catch {
-            // Tool registry not available
+        } catch (err) {
+            console.error("[Graph] failed to load tools: %s", err);
         }
+    } else {
+        console.warn("[Graph] no tools found in config");
     }
 
     // Build global guardrail chains

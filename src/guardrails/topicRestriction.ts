@@ -1,4 +1,5 @@
 import { OrchidGuardrail, OrchidGuardrailResult, OrchidGuardrailAction } from "../core/index.js";
+import { extractTextContent } from "../core/helpers.js";
 import type { OrchidGuardrailContext } from "../core/index.js";
 
 const TOPIC_CHECK_PROMPT = `You are a content classifier. Determine if the following content is within the specified topic boundaries.
@@ -58,7 +59,7 @@ export class TopicRestrictionGuardrail extends OrchidGuardrail {
                 { role: "user", content },
             ]);
 
-            const verdict = (response.content ?? "").trim().toUpperCase();
+            const verdict = extractTextContent(response.content).trim().toUpperCase();
 
             if (verdict === "BLOCKED") {
                 return new OrchidGuardrailResult({

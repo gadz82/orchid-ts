@@ -23,8 +23,20 @@ export interface ConversationMessage {
  * this interface declared `ainvoke`, which is the *Python* LangChain
  * name. Every LangChain JS chat model throws "chatModel.ainvoke is
  * not a function" against that interface. */
+export function extractTextContent(content: unknown): string {
+    if (typeof content === "string") return content;
+    if (content == null) return "";
+    if (Array.isArray(content)) {
+        return content
+            .filter((block: any) => block && block.type === "text" && typeof block.text === "string")
+            .map((block: any) => block.text as string)
+            .join("");
+    }
+    return String(content);
+}
+
 export interface ChatModelLike {
-    invoke(messages: unknown[], options?: Record<string, unknown>): Promise<{ content: string }>;
+    invoke(messages: unknown[], options?: Record<string, unknown>): Promise<{ content: unknown }>;
 }
 
 const SUMMARISE_SYSTEM_TEMPLATE = `You are a helpful assistant that provides concise, accurate summaries.
@@ -197,7 +209,7 @@ export async function compressConversationHistory(
             ],
             { temperature: 0.0 },
         );
-        const summary = result.content || olderText.slice(0, 500);
+        const summary = extractTextContent(result.content) || olderText.slice(0, 500);
         return [{ role: "ai", content: `[Conversation summary]\n${summary}` }, ...recent];
     } catch {
         return recent;
@@ -244,7 +256,7 @@ export async function summarise(
     }
 
     const result = await chatModel.invoke(messages, { temperature: 0.3 });
-    return result.content;
+    return extractTextContent(result.content);
 }
 
 export async function fetchRagContext(

@@ -1,4 +1,5 @@
 import type { ChatModelLike } from "../core/index.js";
+import { extractTextContent } from "../core/helpers.js";
 import type { OrchidAgentSkillConfig } from "../config/schema/index.js";
 
 export class SkillDetector {
@@ -32,7 +33,7 @@ export class SkillDetector {
             const result = await this.chatModel.invoke([{ role: "user", content: prompt }], {
                 temperature: 0,
             });
-            const text = (result.content || "").trim().replace(/^["']|["']$/g, "");
+            const text = extractTextContent(result.content).trim().replace(/^["']|["']$/g, "");
             if (text in skills) {
                 return text;
             }

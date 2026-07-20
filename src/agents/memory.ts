@@ -5,6 +5,7 @@
  * ``OrchidConversationMemory`` ABC from ``core/memory.js``.
  */
 import type { ChatModelLike, OrchidConversationSummary } from "../core/index.js";
+import { extractTextContent } from "../core/helpers.js";
 import { OrchidConversationMemory } from "../core/memory.js";
 
 // ── Structured summary type matching Python OrchidConversationSummary ────
@@ -357,7 +358,7 @@ export class OrchidInMemoryConversationMemory extends OrchidConversationMemory {
             const result = await this.chatModel.invoke([{ role: "user", content: prompt }], {
                 temperature: 0.0,
             });
-            updatedSummary = result.content ?? "";
+            updatedSummary = extractTextContent(result.content);
         } catch (exc: unknown) {
             console.warn("Conversation memory update failed (%s), keeping existing summary", exc);
             return existingSummary ?? "";
@@ -397,7 +398,7 @@ export class OrchidInMemoryConversationMemory extends OrchidConversationMemory {
                 ],
                 { temperature: 0.0 },
             );
-            responseText = result.content ?? "";
+            responseText = extractTextContent(result.content);
         } catch (exc: unknown) {
             console.warn("Conversation memory update failed (%s), keeping existing summary", exc);
             return existingSummary ?? "";

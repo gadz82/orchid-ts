@@ -39,15 +39,21 @@ export class LocalFileContentSource implements OrchidContentSource {
         this._metadata = opts.metadata ?? {};
     }
 
-    async list(
-        dirPath?: string,
-        recursive = false,
-        limit = 200,
-    ): Promise<Array<Record<string, unknown>>> {
-        const target = this._resolveSafe(dirPath ?? ".");
+    async list(opts?: {
+        path?: string;
+        recursive?: boolean;
+        limit?: number;
+    }): Promise<Array<Record<string, unknown>>> {
+        const dirPath = opts?.path ?? "";
+        const recursive = opts?.recursive ?? false;
+        const limit = opts?.limit ?? 200;
+        const target = this._resolveSafe(dirPath || ".");
+        console.info("[LocalFileContentSource] list() called with path='%s' target='%s' root='%s'", 
+            dirPath, target, this._root);
         const results: Array<Record<string, unknown>> = [];
 
         await this._walk(target, results, recursive, limit);
+        console.info("[LocalFileContentSource] list() found %d files", results.length);
 
         return results;
     }
@@ -69,31 +75,36 @@ export class LocalFileContentSource implements OrchidContentSource {
                 filename,
             });
         } catch {
-            // Fallback to raw text
             text = buffer.toString("utf-8");
         }
 
         return {
             path: filePath,
+            name: filename,
             filename,
             content: text,
+            content_type: "text/plain",
             size: fileStat.size,
             modified: fileStat.mtimeMs,
+            metadata: { ...this._metadata },
             ...this._metadata,
         };
     }
 
-    async search(
-        query: string,
-        recursive = false,
-        limit = 200,
-    ): Promise<Array<Record<string, unknown>>> {
-        const all = await this.list(undefined, recursive, limit * 2);
+    async search(opts: {
+        query: string;
+        recursive?: boolean;
+        limit?: number;
+    }): Promise<Array<Record<string, unknown>>> {
+        const query = opts.query;
+        const recursive = opts.recursive ?? false;
+        const limit = opts.limit ?? 200;
+        const all = await this.list({ path: "", recursive, limit: limit * 2 });
         const lower = query.toLowerCase();
         const matched: Array<Record<string, unknown>> = [];
 
         for (const entry of all) {
-            const name = ((entry.filename as string) ?? "").toLowerCase();
+            const name = ((entry.filename as string) ?? (entry.name as string) ?? "").toLowerCase();
             if (name.includes(lower)) {
                 matched.push(entry);
                 if (matched.length >= limit) break;
@@ -103,12 +114,8 @@ export class LocalFileContentSource implements OrchidContentSource {
         return matched;
     }
 
-    // ── internals ─────────────────────────────────────────────────────
-
     private _resolveSafe(relativePath: string): string {
         const resolved = resolve(this._root, relativePath);
-        // Guard against path traversal: ensure the resolved path stays
-        // inside the configured root directory.
         if (!resolved.startsWith(this._root + "/") && resolved !== this._root) {
             throw new Error(`Path traversal detected: ${relativePath}`);
         }
@@ -154,10 +161,13 @@ export class LocalFileContentSource implements OrchidContentSource {
                 }
                 results.push({
                     path: rel,
+                    name: entryName,
                     filename: entryName,
+                    content_type: "text/plain",
                     size: entryStat.size,
                     modified: entryStat.mtimeMs,
                     isDirectory: false,
+                    metadata: { ...this._metadata },
                     ...this._metadata,
                 });
             }
