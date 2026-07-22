@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/gadz82/orchid-ts/compare/v1.2.0...v1.3.0) (2026-07-22)
+
+
+### Features
+
+* enhance agent routing, validation, and logging for improved synthesis ([ea8b9bb](https://github.com/gadz82/orchid-ts/commit/ea8b9bbc59a298a3dffd0796b4678fe6755fc3b0))
+
 # [1.2.0](https://github.com/gadz82/orchid-ts/compare/v1.1.0...v1.2.0) (2026-07-20)
 
 
