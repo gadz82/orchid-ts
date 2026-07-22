@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { OrchidMCPGatewayConfigSchema } from "./mcpGateway.js";
 import { OrchidEventsConfigSchema } from "./events.js";
-import { OrchidConfigStorageConfigSchema } from "./storage.js";
+import { OrchidConfigStorageConfigSchema, OrchidChatStorageConfigSchema } from "./storage.js";
 import { OrchidGuardrailsConfigSchema } from "./guardrails.js";
 import { OrchidLLMConfigSchema } from "./llm.js";
 import { OrchidMCPServerConfigSchema } from "./mcp.js";
@@ -64,6 +64,7 @@ export const OrchidAgentsConfigSchema = z.object({
     allowedPassthroughHosts: z.array(z.string()).default([]),
     events: OrchidEventsConfigSchema.nullable().default(null),
     configStorage: OrchidConfigStorageConfigSchema.default({}),
+    chatStorage: OrchidChatStorageConfigSchema.default({ class: "sqlite", dsn: "" }),
     startupHooks: z.array(z.string()).default([]),
 });
 

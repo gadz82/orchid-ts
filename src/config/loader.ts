@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import type { OrchidAgentsConfig } from "./schema/agent.js";
 import { buildAgentsConfig } from "./schema/agent.js";
@@ -92,7 +93,8 @@ export async function loadConfig(path: string): Promise<OrchidAgentsConfig> {
     let resolvedPath = path;
     if (!resolvedPath.startsWith("/") && !/^[A-Z]:/.test(resolvedPath)) {
         // Try relative to this module's parent directory (orchid-ts root)
-        const moduleParent = dirname(dirname(resolve(import.meta.dirname || __dirname)));
+        const currentFilePath = fileURLToPath(import.meta.url);
+        const moduleParent = dirname(dirname(resolve(currentFilePath)));
         const candidate = resolve(moduleParent, path);
         try {
             readFileSync(candidate);
@@ -308,6 +310,16 @@ export function mergeTopLevelIntoDefaults(data: Record<string, unknown>): void {
             }
             defaults["rag"] = { ...behaviourOnly, ...defaultRag };
         }
+    }
+
+    // Map top-level `storage:` to `chatStorage:` for chat persistence
+    const storageSection = data["storage"];
+    if (
+        storageSection !== null &&
+        typeof storageSection === "object" &&
+        !Array.isArray(storageSection)
+    ) {
+        data["chatStorage"] = storageSection;
     }
 
     data["defaults"] = defaults;
