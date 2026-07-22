@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/gadz82/orchid-ts/compare/v1.3.0...v1.3.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* enhance JSON parsing, schema recovery, and config extensibility ([63f8e21](https://github.com/gadz82/orchid-ts/commit/63f8e214635ed4526e69590c564e836d063faf85))
+
 # [1.3.0](https://github.com/gadz82/orchid-ts/compare/v1.2.0...v1.3.0) (2026-07-22)
 
 
