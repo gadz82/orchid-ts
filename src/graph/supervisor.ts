@@ -335,14 +335,64 @@ async function invokeAndParseManually(
             rawText.slice(0, 200),
         );
     }
-    try {
-        // Try strict JSON first.
-        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return OrchidRoutingDecisionSchema.parse(JSON.parse(jsonMatch[0]));
+
+    // Try to parse JSON and recover from schema mismatches
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+        try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            // Try strict schema validation first
+            try {
+                return OrchidRoutingDecisionSchema.parse(parsed);
+            } catch {
+                // Schema validation failed — try to recover from alternative structures
+                // Some LLMs return { routing: [{ agent: "name", reason: "..." }] }
+                // instead of { agents: ["name"], reasoning: "..." }
+                if (parsed.routing && Array.isArray(parsed.routing)) {
+                    const recoveredAgents = parsed.routing
+                        .map((r: Record<string, unknown>) => r.agent)
+                        .filter((a: unknown): a is string => typeof a === "string" && validAgentNames.has(a));
+                    if (recoveredAgents.length > 0) {
+                        console.warn(
+                            "[supervisor] Recovered agents from alternative JSON structure: %s",
+                            recoveredAgents,
+                        );
+                        return {
+                            reasoning: parsed.routing[0]?.reason ?? "Routed based on LLM response",
+                            execution: "sequential",
+                            agents: recoveredAgents,
+                            skill: null,
+                            directResponse: null,
+                        };
+                    }
+                }
+                // Try to extract agents from any array of objects with agent/name fields
+                for (const key of Object.keys(parsed)) {
+                    const val = parsed[key];
+                    if (Array.isArray(val)) {
+                        const extracted = val
+                            .map((item: Record<string, unknown>) => item.agent ?? item.name ?? item)
+                            .filter((a: unknown): a is string => typeof a === "string" && validAgentNames.has(a));
+                        if (extracted.length > 0) {
+                            console.warn(
+                                "[supervisor] Recovered agents from JSON key '%s': %s",
+                                key,
+                                extracted,
+                            );
+                            return {
+                                reasoning: `Routed based on LLM response (key: ${key})`,
+                                execution: "parallel",
+                                agents: extracted,
+                                skill: null,
+                                directResponse: null,
+                            };
+                        }
+                    }
+                }
+            }
+        } catch {
+            // JSON parse failed — fall through to YAML-ish parser below
         }
-    } catch {
-        // Fall through to YAML-ish parser below
     }
 
     // Many local models (Ollama llama3.2, etc.) respond with YAML-ish
