@@ -120,9 +120,17 @@ export const OrchidScheduleConfigSchema = z.object({
 
 export type OrchidScheduleConfig = z.infer<typeof OrchidScheduleConfigSchema>;
 
+export const OrchidProducerConfigSchema = z.object({
+    class: z.string(),
+    extraArgs: z.record(z.string(), z.unknown()).default({}),
+});
+
+export type OrchidProducerConfig = z.infer<typeof OrchidProducerConfigSchema>;
+
 export const OrchidEventsConfigSchema = z.object({
     enabled: z.boolean().default(false),
     queue: OrchidQueueConfigSchema.optional(),
+    producers: z.array(OrchidProducerConfigSchema).default([]),
     processors: z.array(OrchidProcessorConfigSchema).default([]),
     validators: z.array(OrchidValidatorConfigSchema).default([]),
     triggers: z.array(OrchidTriggerConfigSchema).default([]),

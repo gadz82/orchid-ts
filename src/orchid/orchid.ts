@@ -105,6 +105,34 @@ export class Orchid {
             contentSources,
         });
 
+        // Build vector reader from overrides (if a backend is configured)
+        const vectorBackend = overrides?.vectorBackend ?? "";
+        if (vectorBackend && vectorBackend !== "null") {
+            try {
+                const { buildReader } = await import("../rag/factory.js");
+                runtime.reader = buildReader({
+                    vectorBackend,
+                    qdrantUrl: overrides?.qdrantUrl ?? "",
+                    embeddingModel: overrides?.embeddingModel ?? "",
+                });
+                console.info("[Orchid] vector reader built: backend=%s", vectorBackend);
+            } catch (err) {
+                console.warn("[Orchid] Failed to build vector reader: %s", err);
+            }
+        }
+
+        // Build chat model from overrides
+        const model = overrides?.model ?? "";
+        if (model) {
+            try {
+                const { buildChatModel } = await import("../llm/factory.js");
+                const chatModel = await buildChatModel(model);
+                if (chatModel) runtime.chatModel = chatModel;
+            } catch {
+                // Chat model build is best-effort here; buildGraph will retry
+            }
+        }
+
         // Run startup hooks if configured
         if (config.startupHooks && Array.isArray(config.startupHooks)) {
             await this._runStartupHooks(config.startupHooks, {

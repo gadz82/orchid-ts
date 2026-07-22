@@ -78,6 +78,10 @@
     "./checkpointing": {
       "types": "./dist/checkpointing/index.d.ts",
       "import": "./dist/checkpointing/index.js"
+    },
+    "./events": {
+      "types": "./dist/events/index.d.ts",
+      "import": "./dist/events/index.js"
     }
   },
   "files": [
