@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/gadz82/orchid-ts/compare/v1.3.1...v1.3.2) (2026-07-22)
+
+
+### Bug Fixes
+
+* introduce chat storage configuration and enhance dependency handling ([f94e691](https://github.com/gadz82/orchid-ts/commit/f94e6911cd0acafca4c87e95f01405c6d13f8be7))
+
 ## [1.3.1](https://github.com/gadz82/orchid-ts/compare/v1.3.0...v1.3.1) (2026-07-22)
 
 
