@@ -133,6 +133,24 @@ export class Orchid {
             }
         }
 
+        // Build chat storage from config
+        if (config.chatStorage?.class) {
+            try {
+                const { buildChatStorage } = await import("../persistence/factory.js");
+                runtime.chatStorage = buildChatStorage(
+                    config.chatStorage.class,
+                    config.chatStorage.dsn || "",
+                );
+                // Initialize the database
+                if (typeof runtime.chatStorage.initDb === "function") {
+                    await runtime.chatStorage.initDb();
+                }
+                console.info("[Orchid] chat storage built: class=%s", config.chatStorage.class);
+            } catch (err) {
+                console.warn("[Orchid] Failed to build chat storage: %s", err);
+            }
+        }
+
         // Run startup hooks if configured
         if (config.startupHooks && Array.isArray(config.startupHooks)) {
             await this._runStartupHooks(config.startupHooks, {
