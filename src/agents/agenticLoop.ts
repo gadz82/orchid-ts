@@ -121,7 +121,13 @@ export class AgenticLoop {
             }
 
             const dispatchStart = performance.now();
-            await this.dispatchToolCalls(toolCalls, messages, roundNum);
+            // Filter out undefined tool calls to prevent crashes
+            const validToolCalls = (toolCalls || []).filter((tc: any) => tc != null);
+            if (validToolCalls.length === 0) {
+                console.warn(`[${this.agentName}] No valid tool calls to dispatch`);
+            } else {
+                await this.dispatchToolCalls(validToolCalls, messages, roundNum);
+            }
             const dispatchElapsed = performance.now() - dispatchStart;
             console.info(
                 `[PERF][agent=${this.agentName}][loop] round=${roundNum + 1} ` +
@@ -151,6 +157,9 @@ export class AgenticLoop {
         tcId: string;
         callKey: string;
     } {
+        if (!tc) {
+            return { fnName: "", fnArgs: {}, tcId: "", callKey: "" };
+        }
         const fnName = tc.name || tc.function?.name || "";
         let fnArgs = tc.args || tc.function?.arguments || {};
         if (typeof fnArgs === "string") {
@@ -160,8 +169,11 @@ export class AgenticLoop {
                 fnArgs = {};
             }
         }
+        if (!fnArgs || typeof fnArgs !== "object") {
+            fnArgs = {};
+        }
         const tcId = tc.id || "";
-        const sortedKeys = Object.keys(fnArgs).sort();
+        const sortedKeys = Object.keys(fnArgs || {}).sort();
         const sortedArgs: Record<string, unknown> = {};
         for (const k of sortedKeys) sortedArgs[k] = fnArgs[k];
         const callKey = `${fnName}|${JSON.stringify(sortedArgs)}`;
@@ -233,7 +245,8 @@ export class AgenticLoop {
     ): Promise<void> {
         const parallel: number[] = [];
         const sequential: number[] = [];
-        const unpacked = toolCalls.map((tc) => this.unpack(tc));
+        // Filter out undefined tool calls and ensure unpacked is always an array
+        const unpacked = (toolCalls || []).filter((tc) => tc != null).map((tc) => this.unpack(tc));
 
         for (let i = 0; i < unpacked.length; i++) {
             const { fnName, callKey } = unpacked[i];
@@ -241,7 +254,7 @@ export class AgenticLoop {
             else sequential.push(i);
         }
 
-        const results: (string | null)[] = new Array(toolCalls.length).fill(null);
+        const results: (string | null)[] = new Array(unpacked.length).fill(null);
 
         if (parallel.length > 0) {
             for (const i of parallel) {

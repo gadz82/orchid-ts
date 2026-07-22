@@ -144,13 +144,17 @@ export class SequentialAdvancer {
             handoff = `Continue with ${nextAgent} to address the user's request.`;
         }
 
-        return {
+        const result = {
             activeAgents: [nextAgent],
             pendingAgents: remaining,
             executionMode: "sequential" as const,
             messages: [
                 { role: "ai", content: `[Supervisor → ${nextAgent}] ${handoff}` },
             ] as unknown[],
+            finalResponse: null,
         };
+        console.info("[SequentialAdvancer] returning: activeAgents=%s, pendingAgents=%s, finalResponse=%s",
+            result.activeAgents, result.pendingAgents, result.finalResponse);
+        return result;
     }
 }

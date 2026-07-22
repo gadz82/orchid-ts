@@ -327,12 +327,13 @@ export class GenericAgent extends OrchidAgent {
         mcpData: Record<string, unknown>,
         scope: OrchidRAGScope,
     ): Promise<void> {
+        const injectableToolsArr = (this.config as any).injectableTools ?? null;
         await this.ragPipeline.inject({
             mcpData,
             scope,
             ragNamespace: (this.config.rag as any)?.namespace ?? "",
             enabled: (this.config.rag as any)?.enabled ?? true,
-            injectableTools: (this.config as any).injectableTools ?? null,
+            injectableTools: injectableToolsArr ? new Set(injectableToolsArr) : null,
             effectiveRagResolver: (this.config as any).effectiveRag?.bind?.(this.config) ?? null,
         });
     }
