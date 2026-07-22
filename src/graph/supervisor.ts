@@ -705,6 +705,17 @@ export function routeToAgents(
         return "__end__";
     }
 
+    // If agents produced output but synthesis hasn't happened yet,
+    // route back to supervisor for synthesis
+    const hasAgentOutput = currentTurnHasAgentOutput(state);
+    console.info("[Route] checking for agent output: %s, finalResponse: %s, pendingAgents: %s", 
+        hasAgentOutput, state.finalResponse != null, (state.pendingAgents ?? []).length);
+    
+    if (hasAgentOutput) {
+        console.info("[Route] agents produced output, routing to supervisor for synthesis");
+        return "supervisor";
+    }
+
     if ((state.pendingAgents ?? []).length > 0) {
         return "supervisor";
     }

@@ -68,7 +68,10 @@ class AgentNodeWrapper {
 
         // Signal completion — clear activeAgents so routeToAgents doesn't
         // keep dispatching this agent node forever.
-        return { ...agentResult, activeAgents: [] };
+        const result = { ...agentResult, activeAgents: [] };
+        console.info("[AgentNodeWrapper] %s completed, returning: activeAgents=%s, finalResponse=%s, messages=%d",
+            this.__name__, result.activeAgents, result.finalResponse != null, (result.messages as any[])?.length ?? 0);
+        return result;
     }
 
     // LangChain Runnable interface — LangGraph's `_coerceToRunnable` checks
@@ -742,16 +745,28 @@ export async function buildGraph(opts: {
                     ((agent as any).mcpClients as unknown[]) ?? [],
                     nodeName,
                 );
-            } catch {
-                if (miniEnabled && parentChatModel === null) {
-                    console.warn(
-                        "[Graph] agent '%s' has mini_agent.enabled=true but no chat_model — mini-agent topology disabled",
-                        agent.name,
-                    );
-                }
+            } catch (miniErr) {
+                // Mini-agent wiring failed — either the optional
+                // `miniAgentNode` / `miniAgentAggregator` modules are not
+                // installed, or `addNode`/`addConditionalEdges` rejected
+                // the topology. Either way we MUST install a plain edge
+                // back to the supervisor; without it the agent node has
+                // no outgoing edges and LangGraph treats it as terminal
+                // (the education quiz-generator case).
+                console.warn(
+                    "[Graph] agent '%s' mini-agent wiring failed (%s) — falling back to direct supervisor edge",
+                    agent.name,
+                    miniErr instanceof Error ? miniErr.message : String(miniErr),
+                );
                 addEdge(nodeName, "supervisor");
             }
         } else {
+            if (miniEnabled && parentChatModel === null) {
+                console.warn(
+                    "[Graph] agent '%s' has mini_agent.enabled=true but no chat_model — mini-agent topology disabled",
+                    agent.name,
+                );
+            }
             addEdge(nodeName, "supervisor");
         }
     }
@@ -773,7 +788,10 @@ export async function buildGraph(opts: {
 
     // Supervisor conditional edges
     addConditionalEdges("supervisor", (state: GraphState) => {
+        console.info("[Graph] supervisor conditional edges evaluating, activeAgents=%s, finalResponse=%s, pendingAgents=%s",
+            state.activeAgents ?? [], state.finalResponse != null, (state.pendingAgents ?? []).length);
         const result = routeToAgents(state);
+        console.info("[Graph] supervisor conditional edges result: %s", Array.isArray(result) ? result.map((r: any) => r.node || r).join(", ") : result);
         if (Array.isArray(result)) return result as unknown[];
         if (result === "__end__") return END;
         return result;

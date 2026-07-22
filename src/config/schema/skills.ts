@@ -6,6 +6,7 @@ export const BuiltinToolParameterSchema = z.object({
     description: z.string().default(""),
     required: z.boolean().default(true),
     default: z.unknown().nullable().default(null),
+    items: z.unknown().optional(),
 });
 
 export type BuiltinToolParameter = z.infer<typeof BuiltinToolParameterSchema>;

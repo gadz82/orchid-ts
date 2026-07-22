@@ -241,10 +241,21 @@ async function _registerHandlerTool(
     const required: string[] = [];
     if (params) {
         for (const [pName, pCfg] of Object.entries(params)) {
-            properties[pName] = {
+            const prop: Record<string, unknown> = {
                 type: (pCfg["type"] as string) || "string",
                 description: (pCfg["description"] as string) || "",
             };
+            // Add items field for array types (required by Gemini API)
+            if (pCfg["items"] !== undefined) {
+                const items = pCfg["items"] as Record<string, unknown>;
+                // Ensure object items have a properties field for Gemini API compatibility
+                if (items["type"] === "object" && !items["properties"]) {
+                    prop["items"] = { ...items, properties: {} };
+                } else {
+                    prop["items"] = items;
+                }
+            }
+            properties[pName] = prop;
             if (pCfg["required"] !== false) {
                 required.push(pName);
             }
