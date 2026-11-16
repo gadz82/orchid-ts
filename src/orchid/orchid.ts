@@ -3,6 +3,7 @@ import { OrchidInvoker, OrchidInvokeResult, OrchidPendingApproval } from "./invo
 import { OrchidFactoryOverrides } from "./overrides.js";
 import type { OrchidAuthContext, OrchidAgentState } from "../core/index.js";
 
+// ORCHID-MEM: 01a1a0c1-dd8c-7d03-ab34-988e2955604b — TypeScript facade for runtime and invoke
 export class Orchid {
     private invoker: OrchidInvoker;
     private chatRepo: any | null = null;
